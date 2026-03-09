@@ -7,6 +7,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { useWishlistStore } from '../../stores/wishlistStore';
 import { useCartStore } from '../../stores/cartStore';
 import { WCProduct } from '../../types';
+import { formatCurrency } from '../../utils/currency';
+
 
 interface Props {
     product: WCProduct;
@@ -69,10 +71,10 @@ export default function ProductCard({ product, onPress, style }: Props) {
                 {/* Price */}
                 <View style={s.priceRow}>
                     <Text style={s.price}>
-                        {product.price ? `$${parseFloat(product.price).toFixed(2)}` : 'View Price'}
+                        {product.price ? formatCurrency(product.price) : 'View Price'}
                     </Text>
                     {isOnSale && (
-                        <Text style={s.oldPrice}>${parseFloat(product.regular_price).toFixed(2)}</Text>
+                        <Text style={s.oldPrice}>{formatCurrency(product.regular_price)}</Text>
                     )}
                 </View>
 

@@ -28,6 +28,10 @@ export const createOrder = async (payload: CreateOrderPayload): Promise<WCOrder>
             product_id: item.product.id,
             variation_id: item.variationId ?? 0,
             quantity: item.quantity,
+            meta_data: item.ppomFields ? Object.entries(item.ppomFields).map(([key, value]) => ({
+                key: key,
+                value: Array.isArray(value) ? value.join(', ') : value,
+            })) : [],
         })),
         shipping_lines: [
             {
@@ -82,4 +86,9 @@ export const fetchShippingMethods = async (countryCode = 'IN') => {
         } catch { }
     }
     return allMethods;
+};
+
+export const fetchPaymentGateways = async () => {
+    const { data } = await wooApi.get('/payment_gateways');
+    return data.filter((g: any) => g.enabled);
 };

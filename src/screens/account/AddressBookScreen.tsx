@@ -56,7 +56,7 @@ export default function AddressBookScreen({ navigation }: any) {
 const st = (c: any, sp: any, r: any, f: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: c.background },
-        content: { padding: sp.base, gap: sp.md, paddingBottom: 80 },
+        content: { padding: sp.base, gap: sp.md, paddingBottom: 120 },
         card: { backgroundColor: c.card, borderRadius: r.lg, padding: sp.base },
         cardHeader: { flexDirection: 'row', alignItems: 'center', gap: sp.sm, marginBottom: sp.md },
         iconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: c.primary + '22', alignItems: 'center', justifyContent: 'center' },

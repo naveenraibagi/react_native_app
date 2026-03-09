@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
-    FlatList, Alert, ActivityIndicator,
+    FlatList, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
@@ -9,12 +9,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
 import {
-    fetchProductById, fetchProductVariations, fetchProductReviews,
+    fetchProductById, fetchProductVariations, fetchProductReviews, createProductReview,
+    fetchProductPPOMFields,
 } from '../../services/products.service';
 import { useCartStore } from '../../stores/cartStore';
+import { useAuthStore } from '../../stores/authStore';
 import { useWishlistStore } from '../../stores/wishlistStore';
 import ProductCard from '../../components/product/ProductCard';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
+import { formatCurrency } from '../../utils/currency';
+
 
 const { width: W } = Dimensions.get('window');
 
@@ -29,7 +33,16 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({});
     const [qty, setQty] = useState(1);
     const [addingToCart, setAddingToCart] = useState(false);
+    const [showAdded, setShowAdded] = useState(false);
     const [tab, setTab] = useState<'desc' | 'reviews'>('desc');
+
+    const { user } = useAuthStore();
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewName, setReviewName] = useState(user?.first_name ? `${user.first_name} ${user.last_name}` : '');
+    const [reviewEmail, setReviewEmail] = useState(user?.email ?? '');
+    const [reviewText, setReviewText] = useState('');
+    const [submittingReview, setSubmittingReview] = useState(false);
+    const [ppomValues, setPpomValues] = useState<Record<string, any>>({});
 
     const { data: product, isLoading } = useQuery({
         queryKey: ['product', productId],
@@ -42,9 +55,14 @@ export default function ProductDetailScreen({ route, navigation }: any) {
         enabled: product?.type === 'variable',
     });
 
-    const { data: reviews } = useQuery({
+    const { data: reviews, refetch: refetchReviews } = useQuery({
         queryKey: ['reviews', productId],
         queryFn: () => fetchProductReviews(productId),
+    });
+
+    const { data: ppomFields } = useQuery({
+        queryKey: ['ppom', productId],
+        queryFn: () => fetchProductPPOMFields(productId),
     });
 
     const s = st(colors, spacing, radius, fonts);
@@ -78,14 +96,34 @@ export default function ProductDetailScreen({ route, navigation }: any) {
             return;
         }
         setAddingToCart(true);
-        addItem(product, qty, selectedVariation?.id, selectedAttrs);
+        addItem(product, qty, selectedVariation?.id, selectedAttrs, ppomValues);
         setTimeout(() => {
             setAddingToCart(false);
+            setShowAdded(true);
+            setTimeout(() => setShowAdded(false), 2000);
             Alert.alert('Added to Cart! 🛒', product.name, [
                 { text: 'View Cart', onPress: () => navigation.navigate('CartTab') },
                 { text: 'Continue Shopping' },
             ]);
         }, 400);
+    };
+
+    const onSubmitReview = async () => {
+        if (!reviewName || !reviewEmail || !reviewText) {
+            Alert.alert('Please fill in all fields');
+            return;
+        }
+        setSubmittingReview(true);
+        try {
+            await createProductReview(productId, reviewName, reviewEmail, reviewText, reviewRating);
+            Alert.alert('Success', 'Your review has been submitted');
+            setReviewText('');
+            refetchReviews();
+        } catch (e: any) {
+            Alert.alert('Error', e?.response?.data?.message ?? e.message);
+        } finally {
+            setSubmittingReview(false);
+        }
     };
 
     return (
@@ -126,10 +164,10 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                     <Text style={s.name}>{product.name}</Text>
                     <View style={s.priceRow}>
                         {currentPrice ? (
-                            <Text style={s.price}>${parseFloat(currentPrice).toFixed(2)}</Text>
+                            <Text style={s.price}>{formatCurrency(currentPrice)}</Text>
                         ) : null}
                         {product.on_sale && product.regular_price && (
-                            <Text style={s.oldPrice}>${parseFloat(product.regular_price).toFixed(2)}</Text>
+                            <Text style={s.oldPrice}>{formatCurrency(product.regular_price)}</Text>
                         )}
                         {product.on_sale && (
                             <View style={s.saleBadge}>
@@ -183,6 +221,112 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                         </View>
                     ))}
 
+                    {/* PPOM Fields */}
+                    {(() => {
+                        console.log('Rendering PPOM section. fields data:', ppomFields);
+                        if (!ppomFields) return null;
+                        const fieldsList = Array.isArray(ppomFields) ? ppomFields : Object.values(ppomFields);
+                        console.log('Normalized fields list:', fieldsList);
+                        if (fieldsList.length === 0) return null;
+
+                        return (
+                            <View style={s.ppomSection}>
+                                {fieldsList.map((field: any, idx: number) => {
+                                    const fieldTitle = field.title || field.data_name || `Field ${idx + 1}`;
+                                    const fieldType = field.type || 'text'; // Fallback to text
+                                    const dataName = field.data_name || field.id || `field_${idx}`;
+                                    const isRequired = field.required === 'on' || field.required === 'yes';
+
+                                    console.log(`Rendering field ${idx}:`, { fieldTitle, fieldType, dataName });
+
+                                    // Normalize options to an array
+                                    let options = [];
+                                    if (field.options) {
+                                        options = Array.isArray(field.options) ? field.options : Object.values(field.options);
+                                    }
+
+                                    return (
+                                        <View key={dataName} style={s.ppomField}>
+                                            <Text style={s.ppomLabel}>
+                                                {fieldTitle} {isRequired && <Text style={{ color: colors.error }}>*</Text>}
+                                            </Text>
+
+                                            {(fieldType === 'text' || fieldType === 'textarea' || fieldType === 'email' || fieldType === 'number' || fieldType === 'date' || fieldType === 'input' || fieldType === 'url') && (
+                                                <TextInput
+                                                    style={[s.ppomInput, fieldType === 'textarea' && { height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+                                                    placeholder={field.description || `Enter ${fieldTitle}`}
+                                                    placeholderTextColor={colors.textMuted}
+                                                    multiline={fieldType === 'textarea'}
+                                                    keyboardType={fieldType === 'number' ? 'numeric' : (fieldType === 'email' ? 'email-address' : 'default')}
+                                                    value={ppomValues[fieldTitle] || ''}
+                                                    onChangeText={(val) => setPpomValues(prev => ({ ...prev, [fieldTitle]: val }))}
+                                                />
+                                            )}
+
+                                            {(fieldType === 'select' || fieldType === 'radio') && (
+                                                <View style={s.attrOptions}>
+                                                    {options.map((opt: any, idx: number) => {
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(idx));
+                                                        const selected = ppomValues[fieldTitle] === optLabel;
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={`${field.data_name}-${idx}`}
+                                                                style={[s.attrChip, selected && s.attrChipActive]}
+                                                                onPress={() => setPpomValues(prev => ({ ...prev, [fieldTitle]: optLabel }))}
+                                                            >
+                                                                <Text style={[s.attrChipText, selected && { color: '#fff' }]}>{optLabel}</Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            )}
+
+                                            {(fieldType === 'checkbox') && (
+                                                <View style={s.attrOptions}>
+                                                    {options.map((opt: any, idx: number) => {
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(idx));
+                                                        const currentVals = ppomValues[fieldTitle] || [];
+                                                        const selected = Array.isArray(currentVals) && currentVals.includes(optLabel);
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={`${dataName}-${idx}`}
+                                                                style={[s.attrChip, selected && s.attrChipActive]}
+                                                                onPress={() => {
+                                                                    const next = selected
+                                                                        ? currentVals.filter((v: string) => v !== optLabel)
+                                                                        : [...(Array.isArray(currentVals) ? currentVals : []), optLabel];
+                                                                    setPpomValues(prev => ({ ...prev, [fieldTitle]: next }));
+                                                                }}
+                                                            >
+                                                                <Text style={[s.attrChipText, selected && { color: '#fff' }]}>{optLabel}</Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            )}
+
+                                            {/* Catch-all for other types like Image/File (basic text for now) */}
+                                            {fieldTitle && !['text', 'textarea', 'email', 'number', 'date', 'input', 'url', 'select', 'radio', 'checkbox'].includes(fieldType) && (
+                                                <View style={{ backgroundColor: colors.border + '33', padding: 10, borderRadius: radius.md }}>
+                                                    <Text style={{ fontSize: fonts.sizes.xs, color: colors.textSecondary }}>
+                                                        Type: {fieldType} (Not yet fully supported)
+                                                    </Text>
+                                                    <TextInput
+                                                        style={s.ppomInput}
+                                                        placeholder={`Enter ${fieldTitle} value`}
+                                                        placeholderTextColor={colors.textMuted}
+                                                        value={ppomValues[fieldTitle] || ''}
+                                                        onChangeText={(val) => setPpomValues(prev => ({ ...prev, [fieldTitle]: val }))}
+                                                    />
+                                                </View>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        );
+                    })()}
+
                     {/* Qty + Add to Cart */}
                     <View style={s.cartRow}>
                         <View style={s.qtyBox}>
@@ -195,12 +339,12 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                             </TouchableOpacity>
                         </View>
                         <TouchableOpacity style={s.addBtn} onPress={handleAddToCart} disabled={!inStock || addingToCart} activeOpacity={0.88}>
-                            <LinearGradient colors={inStock ? [colors.primary, colors.primaryDark] : [colors.border, colors.border]} style={s.addBtnGrad}>
+                            <LinearGradient colors={showAdded ? [colors.success, colors.success] : (inStock ? [colors.primary, colors.primaryDark] : [colors.border, colors.border])} style={s.addBtnGrad}>
                                 {addingToCart
                                     ? <ActivityIndicator color="#fff" size="small" />
                                     : <>
-                                        <Ionicons name="cart-outline" size={18} color="#fff" />
-                                        <Text style={s.addBtnText}>{inStock ? 'Add to Cart' : 'Unavailable'}</Text>
+                                        <Ionicons name={showAdded ? "checkmark" : "cart-outline"} size={18} color="#fff" />
+                                        <Text style={s.addBtnText}>{showAdded ? 'Added to Cart' : (inStock ? 'Add to Cart' : 'Unavailable')}</Text>
                                     </>
                                 }
                             </LinearGradient>
@@ -223,6 +367,45 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                         </Text>
                     ) : (
                         <View>
+                            <View style={s.addReviewCard}>
+                                <Text style={s.reviewHeading}>Write a Review</Text>
+                                <View style={s.starPicker}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                                            <Ionicons name={star <= reviewRating ? 'star' : 'star-outline'} size={24} color={colors.star} />
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <TextInput
+                                    style={s.reviewInput}
+                                    placeholder="Your Name"
+                                    placeholderTextColor={colors.textMuted}
+                                    value={reviewName}
+                                    onChangeText={setReviewName}
+                                />
+                                <TextInput
+                                    style={s.reviewInput}
+                                    placeholder="Your Email"
+                                    placeholderTextColor={colors.textMuted}
+                                    value={reviewEmail}
+                                    onChangeText={setReviewEmail}
+                                    keyboardType="email-address"
+                                />
+                                <TextInput
+                                    style={[s.reviewInput, { height: 80 }]}
+                                    placeholder="Share your experience..."
+                                    placeholderTextColor={colors.textMuted}
+                                    value={reviewText}
+                                    onChangeText={setReviewText}
+                                    multiline
+                                />
+                                <TouchableOpacity style={s.submitReviewBtn} onPress={onSubmitReview} disabled={submittingReview}>
+                                    <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.submitReviewGrad}>
+                                        {submittingReview ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.submitReviewText}>Submit Review</Text>}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+
                             {(reviews ?? []).length === 0 ? (
                                 <Text style={s.noReviews}>No reviews yet</Text>
                             ) : (
@@ -256,7 +439,7 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         dotActive: { backgroundColor: colors.primary, width: 18 },
         heartBtn: { position: 'absolute', top: 50, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
         backBtn: { position: 'absolute', top: 50, left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-        content: { padding: spacing.base + 4, paddingBottom: 100 },
+        content: { padding: spacing.base + 4, paddingBottom: 140 },
         name: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.text, marginBottom: 8 },
         priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
         price: { fontSize: fonts.sizes.xl, fontWeight: '800', color: colors.primary },
@@ -292,4 +475,15 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         reviewer: { fontWeight: '700', fontSize: fonts.sizes.sm, color: colors.text },
         reviewStars: { flexDirection: 'row', gap: 2 },
         reviewText: { fontSize: fonts.sizes.sm, color: colors.textSecondary, lineHeight: 20 },
+        addReviewCard: { backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border },
+        reviewHeading: { fontSize: fonts.sizes.base, fontWeight: '700', color: colors.text, marginBottom: 12 },
+        starPicker: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+        reviewInput: { backgroundColor: colors.inputBg, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, padding: 10, marginBottom: 12, color: colors.text, fontSize: fonts.sizes.sm },
+        submitReviewBtn: { borderRadius: radius.sm, overflow: 'hidden', marginTop: 4 },
+        submitReviewGrad: { paddingVertical: 12, alignItems: 'center' },
+        submitReviewText: { color: '#fff', fontWeight: '700', fontSize: fonts.sizes.sm },
+        ppomSection: { marginTop: 10, marginBottom: 20 },
+        ppomField: { marginBottom: 15 },
+        ppomLabel: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.text, marginBottom: 8 },
+        ppomInput: { height: 46, backgroundColor: colors.inputBg, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12, color: colors.text, fontSize: fonts.sizes.sm },
     });

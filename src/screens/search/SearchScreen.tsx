@@ -78,7 +78,7 @@ export default function SearchScreen({ navigation }: any) {
                     data={results}
                     numColumns={2}
                     keyExtractor={(i) => String(i.id)}
-                    contentContainerStyle={{ padding: spacing.base, gap: spacing.md, paddingBottom: 80 }}
+                    contentContainerStyle={{ padding: spacing.base, gap: spacing.md, paddingBottom: 120 }}
                     columnWrapperStyle={{ gap: spacing.md }}
                     ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
                     ListHeaderComponent={

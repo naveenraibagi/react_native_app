@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
@@ -7,12 +8,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
-import { createOrder, markOrderPaid } from '../../services/orders.service';
+import { createOrder, markOrderPaid, fetchPaymentGateways, fetchShippingMethods } from '../../services/orders.service';
 import { WCAddress } from '../../types';
+import { formatCurrency } from '../../utils/currency';
+import { useQuery } from '@tanstack/react-query';
+
+
 
 const BLANK_ADDR: WCAddress = {
     first_name: '', last_name: '', address_1: '', address_2: '',
-    city: '', state: '', postcode: '', country: 'US',
+    city: '', state: '', postcode: '', country: 'IN', phone: '',
 };
 
 export default function CheckoutScreen({ navigation }: any) {
@@ -23,46 +28,94 @@ export default function CheckoutScreen({ navigation }: any) {
     const [billing, setBilling] = useState<WCAddress>(user?.billing ?? BLANK_ADDR);
     const [shipping, setShipping] = useState<WCAddress>(user?.shipping ?? BLANK_ADDR);
     const [sameAsBilling, setSameAsBilling] = useState(true);
-    const [paymentMethod, setPaymentMethod] = useState<'stripe' | 'cod'>('stripe');
+    const [selectedGateway, setSelectedGateway] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+
+    const { data: gateways, isLoading: gatewaysLoading } = useQuery<any[]>({
+        queryKey: ['paymentGateways'],
+        queryFn: fetchPaymentGateways,
+    });
+
+    const { data: shippingMethods, isLoading: shippingLoading } = useQuery<any[]>({
+        queryKey: ['shippingMethods', billing.country],
+        queryFn: () => fetchShippingMethods(billing.country),
+    });
+
+    const [selectedShipping, setSelectedShipping] = useState<any>(null);
+
+    useEffect(() => {
+        if (gateways && gateways.length > 0 && !selectedGateway) {
+            setSelectedGateway(gateways[0]);
+        }
+    }, [gateways]);
+
+    useEffect(() => {
+        if (shippingMethods && shippingMethods.length > 0 && !selectedShipping) {
+            setSelectedShipping(shippingMethods[0]);
+        }
+    }, [shippingMethods]);
+
 
     const sub = subtotal();
     const discount = couponDiscount;
-    const shippingCost = 5.99;
+    const shippingCost = parseFloat(selectedShipping?.settings?.cost?.value || '0');
     const total = sub - discount + shippingCost;
 
     const s = st(colors, spacing, radius, fonts);
 
     const handlePlaceOrder = async () => {
-        if (!billing.first_name || !billing.address_1 || !billing.city || !billing.postcode) {
-            Alert.alert('Please fill in your billing address');
+        if (!billing.first_name || !billing.address_1 || !billing.city || !billing.postcode || !billing.email) {
+            Alert.alert('Please fill in your billing address including email');
             return;
         }
         setLoading(true);
         try {
+            // 1. Create Order
             const order = await createOrder({
                 customerId: user?.id ?? 0,
                 billing,
                 shipping: sameAsBilling ? billing : shipping,
                 lineItems: items,
-                shippingMethodId: 'flat_rate',
-                shippingMethodTitle: 'Flat Rate',
+                shippingMethodId: selectedShipping?.method_id ?? 'flat_rate',
+                shippingMethodTitle: selectedShipping?.method_title ?? 'Flat Rate',
                 shippingTotal: shippingCost.toFixed(2),
                 couponCode,
-                paymentMethod: paymentMethod === 'stripe' ? 'stripe' : 'cod',
-                paymentMethodTitle: paymentMethod === 'stripe' ? 'Credit / Debit Card' : 'Cash on Delivery',
+                paymentMethod: selectedGateway?.id ?? 'cod',
+                paymentMethodTitle: selectedGateway?.title ?? 'Cash on Delivery',
             });
 
-            if (paymentMethod === 'cod') {
-                // Mark instantly paid for COD
+            // 2. Handle Payment/Confirmation
+            if (selectedGateway?.id === 'cod') {
                 clearCart();
-                navigation.replace('OrderConfirmation', { orderId: order.id });
             } else {
-                // Stripe — for demo we "pay" immediately; integrate StripeProvider for real
                 await markOrderPaid(order.id);
                 clearCart();
-                navigation.replace('OrderConfirmation', { orderId: order.id });
             }
+
+            // 3. Guest Account Creation (Proactive)
+            if (!user) {
+                try {
+                    const { registerUser, loginUser } = require('../../services/auth.service');
+                    // Register using email as username and phone as temp password
+                    const newUser = await registerUser(
+                        billing.email,
+                        billing.phone || 'password123',
+                        billing.first_name,
+                        billing.last_name
+                    );
+
+                    // Automatically log in
+                    const { token, user: loggedInUser } = await loginUser(billing.email, billing.phone || 'password123');
+                    const { useAuthStore } = require('../../stores/authStore');
+                    useAuthStore.getState().setAuth(loggedInUser, token);
+                } catch (regErr) {
+                    console.warn('Auto-registration failed:', regErr);
+                    // We don't block order flow if registration fails (e.g. user already exists)
+                }
+            }
+
+            navigation.replace('OrderConfirmation', { orderId: order.id });
+
         } catch (e: any) {
             Alert.alert('Order Failed', e?.response?.data?.message ?? e.message);
         } finally {
@@ -76,7 +129,11 @@ export default function CheckoutScreen({ navigation }: any) {
             <Text style={s.sectionTitle}>Billing Address</Text>
             <TouchableOpacity
                 style={[s.addrCard, shadows.sm]}
-                onPress={() => navigation.navigate('AddressForm', { type: 'billing', address: billing })}
+                onPress={() => navigation.navigate('AddressForm', {
+                    type: 'billing',
+                    address: billing,
+                    onSave: (addr: WCAddress) => setBilling(addr)
+                })}
             >
                 <Ionicons name="location-outline" size={20} color={colors.primary} />
                 <View style={s.addrInfo}>
@@ -84,6 +141,8 @@ export default function CheckoutScreen({ navigation }: any) {
                         <>
                             <Text style={s.addrName}>{billing.first_name} {billing.last_name}</Text>
                             <Text style={s.addrLine}>{billing.address_1}, {billing.city}, {billing.state} {billing.postcode}</Text>
+                            <Text style={s.addrLine}>{billing.email}</Text>
+                            <Text style={s.addrLine}>{billing.phone}</Text>
                         </>
                     ) : (
                         <Text style={s.addrPlaceholder}>Add billing address</Text>
@@ -104,13 +163,21 @@ export default function CheckoutScreen({ navigation }: any) {
             {!sameAsBilling && (
                 <>
                     <Text style={s.sectionTitle}>Shipping Address</Text>
-                    <TouchableOpacity style={[s.addrCard, shadows.sm]} onPress={() => navigation.navigate('AddressForm', { type: 'shipping', address: shipping })}>
+                    <TouchableOpacity
+                        style={[s.addrCard, shadows.sm]}
+                        onPress={() => navigation.navigate('AddressForm', {
+                            type: 'shipping',
+                            address: shipping,
+                            onSave: (addr: WCAddress) => setShipping(addr)
+                        })}
+                    >
                         <Ionicons name="location-outline" size={20} color={colors.primary} />
                         <View style={s.addrInfo}>
                             {shipping.first_name ? (
                                 <>
                                     <Text style={s.addrName}>{shipping.first_name} {shipping.last_name}</Text>
                                     <Text style={s.addrLine}>{shipping.address_1}, {shipping.city}</Text>
+                                    <Text style={s.addrLine}>{shipping.phone}</Text>
                                 </>
                             ) : (
                                 <Text style={s.addrPlaceholder}>Add shipping address</Text>
@@ -121,40 +188,79 @@ export default function CheckoutScreen({ navigation }: any) {
                 </>
             )}
 
-            {/* Payment method */}
+            {/* Shipping Method */}
+            <Text style={s.sectionTitle}>Shipping Method</Text>
+            {shippingLoading ? <ActivityIndicator size="small" color={colors.primary} /> :
+                shippingMethods?.length === 0 ? <Text style={s.noMethods}>No shipping methods available for this location</Text> :
+                    shippingMethods?.map((m: any) => (
+                        <TouchableOpacity
+                            key={m.instance_id}
+                            style={[s.payOption, selectedShipping?.instance_id === m.instance_id && s.payOptionActive]}
+                            onPress={() => setSelectedShipping(m)}
+                        >
+                            <View style={[s.radio, selectedShipping?.instance_id === m.instance_id && s.radioActive]}>
+                                {selectedShipping?.instance_id === m.instance_id && <View style={s.radioDot} />}
+                            </View>
+                            <Ionicons
+                                name="bus-outline"
+                                size={20}
+                                color={selectedShipping?.instance_id === m.instance_id ? colors.primary : colors.textSecondary}
+                            />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[s.payLabel, selectedShipping?.instance_id === m.instance_id && { color: colors.primary }]}>
+                                    {m.method_title}
+                                </Text>
+                                {m.settings?.cost?.value && (
+                                    <Text style={s.shipCost}>{formatCurrency(m.settings.cost.value)}</Text>
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    ))
+            }
             <Text style={s.sectionTitle}>Payment Method</Text>
-            {(['stripe', 'cod'] as const).map((m) => (
-                <TouchableOpacity key={m} style={[s.payOption, paymentMethod === m && s.payOptionActive]} onPress={() => setPaymentMethod(m)}>
-                    <View style={[s.radio, paymentMethod === m && s.radioActive]}>
-                        {paymentMethod === m && <View style={s.radioDot} />}
-                    </View>
-                    <Ionicons name={m === 'stripe' ? 'card-outline' : 'cash-outline'} size={20} color={paymentMethod === m ? colors.primary : colors.textSecondary} />
-                    <Text style={[s.payLabel, paymentMethod === m && { color: colors.primary }]}>
-                        {m === 'stripe' ? 'Credit / Debit Card' : 'Cash on Delivery'}
-                    </Text>
-                </TouchableOpacity>
-            ))}
+            {gatewaysLoading ? <ActivityIndicator size="small" color={colors.primary} /> :
+                gateways?.map((m: any) => (
+                    <TouchableOpacity
+                        key={m.id}
+                        style={[s.payOption, selectedGateway?.id === m.id && s.payOptionActive]}
+                        onPress={() => setSelectedGateway(m)}
+                    >
+                        <View style={[s.radio, selectedGateway?.id === m.id && s.radioActive]}>
+                            {selectedGateway?.id === m.id && <View style={s.radioDot} />}
+                        </View>
+                        <Ionicons
+                            name={m.id === 'cod' ? 'cash-outline' : 'payment-outline'}
+                            size={20}
+                            color={selectedGateway?.id === m.id ? colors.primary : colors.textSecondary}
+                        />
+                        <Text style={[s.payLabel, selectedGateway?.id === m.id && { color: colors.primary }]}>
+                            {m.title}
+                        </Text>
+                    </TouchableOpacity>
+                ))
+            }
+
 
             {/* Order Summary */}
             <Text style={s.sectionTitle}>Order Summary</Text>
             {items.map((item) => (
                 <View key={`${item.product.id}-${item.variationId}`} style={s.lineItem}>
                     <Text style={s.lineText} numberOfLines={1}>{item.product.name} × {item.quantity}</Text>
-                    <Text style={s.linePrice}>${item.lineTotal.toFixed(2)}</Text>
+                    <Text style={s.linePrice}>{formatCurrency(item.lineTotal)}</Text>
                 </View>
             ))}
             <View style={[s.summary, shadows.sm]}>
-                <View style={s.sumRow}><Text style={s.sumLabel}>Subtotal</Text><Text style={s.sumVal}>${sub.toFixed(2)}</Text></View>
-                {discount > 0 && <View style={s.sumRow}><Text style={[s.sumLabel, { color: colors.success }]}>Coupon</Text><Text style={[s.sumVal, { color: colors.success }]}>-${discount.toFixed(2)}</Text></View>}
-                <View style={s.sumRow}><Text style={s.sumLabel}>Shipping</Text><Text style={s.sumVal}>${shippingCost.toFixed(2)}</Text></View>
+                <View style={s.sumRow}><Text style={s.sumLabel}>Subtotal</Text><Text style={s.sumVal}>{formatCurrency(sub)}</Text></View>
+                {discount > 0 && <View style={s.sumRow}><Text style={[s.sumLabel, { color: colors.success }]}>Coupon</Text><Text style={[s.sumVal, { color: colors.success }]}>-{formatCurrency(discount)}</Text></View>}
+                <View style={s.sumRow}><Text style={s.sumLabel}>Shipping</Text><Text style={s.sumVal}>{formatCurrency(shippingCost)}</Text></View>
                 <View style={[s.divider, { borderTopColor: colors.border }]} />
-                <View style={s.sumRow}><Text style={s.totalLabel}>Total</Text><Text style={s.totalVal}>${total.toFixed(2)}</Text></View>
+                <View style={s.sumRow}><Text style={s.totalLabel}>Total</Text><Text style={s.totalVal}>{formatCurrency(total)}</Text></View>
             </View>
 
             {/* Place Order */}
             <TouchableOpacity style={s.orderBtn} onPress={handlePlaceOrder} disabled={loading} activeOpacity={0.88}>
                 <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.orderGrad}>
-                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.orderText}>Place Order · ${total.toFixed(2)}</Text>}
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.orderText}>Place Order · {formatCurrency(total)}</Text>}
                 </LinearGradient>
             </TouchableOpacity>
         </ScrollView>
@@ -164,7 +270,7 @@ export default function CheckoutScreen({ navigation }: any) {
 const st = (colors: any, spacing: any, radius: any, fonts: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: colors.background },
-        content: { padding: spacing.base, paddingBottom: 60 },
+        content: { padding: spacing.base, paddingBottom: 140 },
         sectionTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.text, marginBottom: 10, marginTop: spacing.lg },
         addrCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, gap: 12 },
         addrInfo: { flex: 1 },
@@ -194,4 +300,6 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         orderBtn: { borderRadius: radius.md, overflow: 'hidden', marginTop: spacing.lg },
         orderGrad: { paddingVertical: 16, alignItems: 'center' },
         orderText: { color: '#fff', fontSize: fonts.sizes.base, fontWeight: '700' },
+        noMethods: { fontSize: fonts.sizes.sm, color: colors.textMuted, paddingVertical: 10 },
+        shipCost: { fontSize: fonts.sizes.xs, color: colors.textSecondary, marginTop: 2 },
     });

@@ -24,7 +24,7 @@ export default function WishlistScreen({ navigation }: any) {
             data={ids}
             numColumns={2}
             keyExtractor={(id) => String(id)}
-            contentContainerStyle={{ padding: spacing.base, gap: spacing.base, paddingBottom: 80 }}
+            contentContainerStyle={{ padding: spacing.base, gap: spacing.base, paddingBottom: 120 }}
             columnWrapperStyle={{ gap: spacing.base }}
             ItemSeparatorComponent={() => <View style={{ height: spacing.base }} />}
             renderItem={({ item: productId }) => <WishlistItem productId={productId} navigation={navigation} cardW={cardW} />}

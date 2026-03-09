@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../stores/authStore';
 import { useCartStore } from '../stores/cartStore';
@@ -164,16 +164,22 @@ const CartTabBadge = () => {
 };
 
 const AppTabs = () => {
-    const { colors } = useTheme();
+    const { colors, shadows } = useTheme();
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: colors.tabBar,
-                    borderTopColor: colors.border,
+                    position: 'absolute',
+                    bottom: Platform.OS === 'ios' ? 30 : 20,
+                    left: 20,
+                    right: 20,
+                    backgroundColor: colors.surface,
+                    borderRadius: 30,
                     height: 64,
-                    paddingBottom: 8,
+                    borderTopWidth: 0,
+                    ...shadows.md,
+                    elevation: 8,
                 },
                 tabBarActiveTintColor: colors.tabBarActive,
                 tabBarInactiveTintColor: colors.tabBarInactive,
@@ -207,14 +213,10 @@ const AppTabs = () => {
 // ─── Root Navigator ────────────────────────────────────────
 const Root = createNativeStackNavigator();
 const RootNavigator = () => {
-    const { isLoggedIn } = useAuthStore();
     return (
         <Root.Navigator screenOptions={{ headerShown: false }}>
-            {isLoggedIn ? (
-                <Root.Screen name="App" component={AppTabs} />
-            ) : (
-                <Root.Screen name="Auth" component={AuthNavigator} />
-            )}
+            <Root.Screen name="App" component={AppTabs} />
+            <Root.Screen name="Auth" component={AuthNavigator} />
         </Root.Navigator>
     );
 };

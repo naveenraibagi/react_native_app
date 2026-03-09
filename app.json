@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ShopMobile",
+    "name": "SBDH CRAFTS",
     "slug": "woocommerce-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#6C63FF"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -21,7 +21,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundColor": "#6C63FF"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.sbdh.app",
       "permissions": [

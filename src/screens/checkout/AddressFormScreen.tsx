@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useEffect } from 'react';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,35 +9,44 @@ import { useTheme } from '../../hooks/useTheme';
 const schema = z.object({
     first_name: z.string().min(1, 'Required'),
     last_name: z.string().min(1, 'Required'),
+    email: z.string().email('Enter a valid email'),
     address_1: z.string().min(3, 'Required'),
     address_2: z.string().optional(),
     city: z.string().min(1, 'Required'),
     state: z.string().min(1, 'Required'),
-    postcode: z.string().min(3, 'Required'),
+    postcode: z.string().min(6, 'Must be 6 digits').max(6, 'Must be 6 digits'),
     country: z.string().min(2, 'Required'),
-    phone: z.string().optional(),
+    phone: z.string().min(10, 'Phone is mandatory (min 10 digits)'),
 });
 type FormData = z.infer<typeof schema>;
 
 export default function AddressFormScreen({ route, navigation }: any) {
-    const { type, address } = route.params ?? {};
+    const { type, address, onSave: onSaveCallback } = route.params ?? {};
     const { colors, spacing, radius, fonts } = useTheme();
-    const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+
+    const { control, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
         resolver: zodResolver(schema),
-        defaultValues: address ?? {},
+        defaultValues: {
+            country: 'IN',
+            ...address
+        },
     });
 
     const onSave = (data: FormData) => {
-        // Return the filled address to whoever navigated here
+        if (onSaveCallback) {
+            onSaveCallback(data);
+        }
         navigation.goBack();
-        // In a real app, update the checkout state with this address
     };
 
     const s = st(colors, spacing, radius, fonts);
 
-    const Field = ({ name, label, placeholder, keyboard = 'default' }: any) => (
+    const Field = ({ name, label, placeholder, keyboard = 'default', loading = false }: any) => (
         <View style={s.field}>
-            <Text style={s.label}>{label}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={s.label}>{label}</Text>
+                {loading && <ActivityIndicator size="small" color={colors.primary} />}
+            </View>
             <Controller control={control} name={name} render={({ field: { onChange, value } }) => (
                 <TextInput
                     style={[s.input, (errors as any)[name] && s.inputErr]}
@@ -59,17 +68,18 @@ export default function AddressFormScreen({ route, navigation }: any) {
                 <View style={s.half}><Field name="first_name" label="First Name" placeholder="John" /></View>
                 <View style={s.half}><Field name="last_name" label="Last Name" placeholder="Doe" /></View>
             </View>
+            <Field name="email" label="Email Address" placeholder="john@example.com" keyboard="email-address" />
             <Field name="address_1" label="Address Line 1" placeholder="123 Main St" />
             <Field name="address_2" label="Address Line 2 (optional)" placeholder="Apt, Suite, etc." />
             <View style={s.row}>
-                <View style={s.half}><Field name="city" label="City" placeholder="New York" /></View>
-                <View style={s.half}><Field name="state" label="State" placeholder="NY" /></View>
+                <View style={s.half}><Field name="country" label="Country" placeholder="IN" /></View>
+                <View style={s.half}><Field name="postcode" label="ZIP / Postcode" placeholder="100001" keyboard="numeric" /></View>
             </View>
             <View style={s.row}>
-                <View style={s.half}><Field name="postcode" label="ZIP / Postcode" placeholder="10001" keyboard="numeric" /></View>
-                <View style={s.half}><Field name="country" label="Country" placeholder="US" /></View>
+                <View style={s.half}><Field name="city" label="City" placeholder="Mumbai" /></View>
+                <View style={s.half}><Field name="state" label="State" placeholder="Maharashtra" /></View>
             </View>
-            <Field name="phone" label="Phone (optional)" placeholder="+1 555 0000" keyboard="phone-pad" />
+            <Field name="phone" label="Phone" placeholder="9876543210" keyboard="phone-pad" />
 
             <TouchableOpacity style={s.btn} onPress={handleSubmit(onSave)} activeOpacity={0.88}>
                 <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.btnGrad}>
@@ -96,3 +106,4 @@ const st = (c: any, sp: any, r: any, f: any) =>
         btnGrad: { paddingVertical: 14, alignItems: 'center' },
         btnText: { color: '#fff', fontWeight: '700', fontSize: f.sizes.base },
     });
+

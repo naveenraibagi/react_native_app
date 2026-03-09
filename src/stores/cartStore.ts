@@ -7,9 +7,9 @@ interface CartStore {
     items: CartItem[];
     couponCode: string;
     couponDiscount: number;
-    addItem: (product: WCProduct, qty?: number, variationId?: number, attrs?: Record<string, string>) => void;
-    removeItem: (productId: number, variationId?: number) => void;
-    updateQty: (productId: number, qty: number, variationId?: number) => void;
+    addItem: (product: WCProduct, qty?: number, variationId?: number, attrs?: Record<string, string>, ppomFields?: Record<string, any>) => void;
+    removeItem: (productId: number, variationId?: number, ppomFields?: Record<string, any>) => void;
+    updateQty: (productId: number, qty: number, variationId?: number, ppomFields?: Record<string, any>) => void;
     clearCart: () => void;
     applyCoupon: (code: string, discount: number) => void;
     removeCoupon: () => void;
@@ -24,19 +24,28 @@ export const useCartStore = create<CartStore>()(
             couponCode: '',
             couponDiscount: 0,
 
-            addItem: (product, qty = 1, variationId, attrs) => {
+            addItem: (product, qty = 1, variationId, attrs, ppomFields) => {
                 set((state) => {
+                    const isSamePPOM = (p1?: Record<string, any>, p2?: Record<string, any>) => {
+                        return JSON.stringify(p1 || {}) === JSON.stringify(p2 || {});
+                    };
+
                     const existing = state.items.find(
-                        (i) => i.product.id === product.id && i.variationId === variationId
+                        (i) => i.product.id === product.id &&
+                            i.variationId === variationId &&
+                            isSamePPOM(i.ppomFields, ppomFields)
                     );
+
                     if (existing) {
                         return {
                             items: state.items.map((i) =>
-                                i.product.id === product.id && i.variationId === variationId
+                                i.product.id === product.id &&
+                                    i.variationId === variationId &&
+                                    isSamePPOM(i.ppomFields, ppomFields)
                                     ? {
                                         ...i,
                                         quantity: i.quantity + qty,
-                                        lineTotal: (i.quantity + qty) * parseFloat(product.price || '0'),
+                                        lineTotal: (i.quantity + qty) * i.price,
                                     }
                                     : i
                             ),
@@ -50,6 +59,7 @@ export const useCartStore = create<CartStore>()(
                                 product,
                                 variationId,
                                 selectedAttributes: attrs,
+                                ppomFields,
                                 quantity: qty,
                                 price,
                                 lineTotal: price * qty,
@@ -59,21 +69,29 @@ export const useCartStore = create<CartStore>()(
                 });
             },
 
-            removeItem: (productId, variationId) =>
-                set((state) => ({
-                    items: state.items.filter(
-                        (i) => !(i.product.id === productId && i.variationId === variationId)
-                    ),
-                })),
+            removeItem: (productId, variationId, ppomFields) =>
+                set((state) => {
+                    const isSamePPOM = (p1?: Record<string, any>, p2?: Record<string, any>) => {
+                        return JSON.stringify(p1 || {}) === JSON.stringify(p2 || {});
+                    };
+                    return {
+                        items: state.items.filter(
+                            (i) => !(i.product.id === productId && i.variationId === variationId && isSamePPOM(i.ppomFields, ppomFields))
+                        ),
+                    };
+                }),
 
-            updateQty: (productId, qty, variationId) => {
+            updateQty: (productId, qty, variationId, ppomFields) => {
+                const isSamePPOM = (p1?: Record<string, any>, p2?: Record<string, any>) => {
+                    return JSON.stringify(p1 || {}) === JSON.stringify(p2 || {});
+                };
                 if (qty <= 0) {
-                    get().removeItem(productId, variationId);
+                    get().removeItem(productId, variationId, ppomFields);
                     return;
                 }
                 set((state) => ({
                     items: state.items.map((i) =>
-                        i.product.id === productId && i.variationId === variationId
+                        i.product.id === productId && i.variationId === variationId && isSamePPOM(i.ppomFields, ppomFields)
                             ? { ...i, quantity: qty, lineTotal: qty * i.price }
                             : i
                     ),

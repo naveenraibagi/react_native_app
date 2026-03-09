@@ -34,6 +34,22 @@ export const fetchProductById = async (id: number): Promise<WCProduct> => {
     return data;
 };
 
+export const fetchProductPPOMFields = async (productId: number) => {
+    try {
+        const url = `/custom/v1/ppom-fields/${productId}`;
+        console.log('Fetching PPOM fields from:', url);
+        const { data } = await wpApi.get(url);
+        console.log('PPOM API Response:', data);
+        if (data.status === 'success' && data.ppom_fields) {
+            return data.ppom_fields;
+        }
+        return [];
+    } catch (error: any) {
+        console.warn('Error fetching PPOM fields:', error?.message || error);
+        return [];
+    }
+};
+
 export const fetchProductVariations = async (productId: number) => {
     const { data } = await wooApi.get(`/products/${productId}/variations`);
     return data;

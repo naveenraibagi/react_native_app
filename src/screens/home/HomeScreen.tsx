@@ -1,8 +1,9 @@
 import React, { useRef, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-    Dimensions, Image, RefreshControl, StatusBar,
+    Dimensions, Image, RefreshControl, StatusBar, ActivityIndicator,
 } from 'react-native';
+
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,22 +12,25 @@ import { fetchProducts, fetchCategories } from '../../services/products.service'
 import { useAuthStore } from '../../stores/authStore';
 import ProductCard from '../../components/product/ProductCard';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
+import { formatCurrency } from '../../utils/currency';
+import { WCProduct } from '../../types';
+
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const BANNER_H = 200;
+const BANNER_H = 220;
 
-// Mock banners – replace with WooCommerce banners/slider plugin API
-const BANNERS = [
-    { id: '1', title: 'Summer Sale', subtitle: 'Up to 50% off', color: ['#6C63FF', '#574FD6'] as [string, string] },
-    { id: '2', title: 'New Arrivals', subtitle: 'Shop the latest', color: ['#FF6584', '#e04444'] as [string, string] },
-    { id: '3', title: 'Free Shipping', subtitle: 'On orders over $50', color: ['#10B981', '#059669'] as [string, string] },
-];
 
 export default function HomeScreen({ navigation }: any) {
     const { colors, spacing, radius, fonts, isDark } = useTheme();
     const { user } = useAuthStore();
     const [activeBanner, setActiveBanner] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
+
+    const { data: latestProducts, isLoading: bannerLoading, refetch: refetchBanners } = useQuery({
+        queryKey: ['products', 'latest'],
+        queryFn: () => fetchProducts({ perPage: 5, sort: 'date' }),
+        staleTime: 5 * 60 * 1000,
+    });
 
     const { data: categories, isLoading: catLoading, refetch: refetchCats } = useQuery({
         queryKey: ['categories', 0],
@@ -48,9 +52,10 @@ export default function HomeScreen({ navigation }: any) {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([refetchCats(), refetchFeat(), refetchSale()]);
+        await Promise.all([refetchBanners(), refetchCats(), refetchFeat(), refetchSale()]);
         setRefreshing(false);
     }, []);
+
 
     const s = st(colors, spacing, radius, fonts);
 
@@ -104,30 +109,59 @@ export default function HomeScreen({ navigation }: any) {
             >
                 {/* Banner Carousel */}
                 <View style={s.bannerSection}>
-                    <ScrollView
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        onMomentumScrollEnd={(e) =>
-                            setActiveBanner(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W))
-                        }
-                    >
-                        {BANNERS.map((b) => (
-                            <LinearGradient key={b.id} colors={b.color} style={s.banner}>
-                                <Text style={s.bannerTitle}>{b.title}</Text>
-                                <Text style={s.bannerSub}>{b.subtitle}</Text>
-                                <TouchableOpacity style={s.shopNowBtn}>
-                                    <Text style={s.shopNowText}>Shop Now →</Text>
-                                </TouchableOpacity>
-                            </LinearGradient>
-                        ))}
-                    </ScrollView>
-                    <View style={s.dots}>
-                        {BANNERS.map((_, i) => (
-                            <View key={i} style={[s.dot, i === activeBanner && s.dotActive]} />
-                        ))}
-                    </View>
+                    {bannerLoading ? (
+                        <View style={[s.banner, { backgroundColor: colors.surface, justifyContent: 'center' }]}>
+                            <ActivityIndicator color={colors.primary} />
+                        </View>
+                    ) : (
+                        <>
+                            <ScrollView
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                onMomentumScrollEnd={(e) =>
+                                    setActiveBanner(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W))
+                                }
+                            >
+                                {latestProducts?.map((product: WCProduct) => (
+                                    <TouchableOpacity
+                                        key={product.id}
+                                        activeOpacity={1}
+                                        onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                                    >
+                                        <View style={s.banner}>
+                                            <Image
+                                                source={product.images?.[0] ? { uri: product.images[0].src } : require('../../../assets/icon.png')}
+                                                style={StyleSheet.absoluteFillObject}
+                                            />
+                                            <LinearGradient
+                                                colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
+                                                style={StyleSheet.absoluteFillObject}
+                                            />
+                                            <View style={s.bannerInfo}>
+                                                <Text style={s.bannerTag}>NEW ARRIVAL</Text>
+                                                <Text style={s.bannerTitle} numberOfLines={2}>{product.name}</Text>
+                                                <Text style={s.bannerPrice}>{formatCurrency(product.price)}</Text>
+                                                <TouchableOpacity
+                                                    style={s.shopNowBtn}
+                                                    onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
+                                                >
+                                                    <Text style={s.shopNowText}>Shop Now →</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            <View style={s.dots}>
+                                {latestProducts?.map((_, i) => (
+                                    <View key={i} style={[s.dot, i === activeBanner && s.dotActive]} />
+                                ))}
+                            </View>
+                        </>
+                    )}
                 </View>
+
 
                 {/* Categories */}
                 <View style={s.section}>
@@ -182,7 +216,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
 
                 {/* On Sale */}
-                <View style={[s.section, { marginBottom: 80 }]}>
+                <View style={[s.section, { marginBottom: 120 }]}>
                     <View style={s.sectionHeader}>
                         <Text style={s.sectionTitle}>⚡ On Sale</Text>
                         <TouchableOpacity onPress={() => navigation.navigate('ProductList', { title: 'Sale', onSale: true })}>
@@ -225,14 +259,18 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         headerIconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
         scroll: { flex: 1 },
         bannerSection: { marginBottom: spacing.lg },
-        banner: { width: SCREEN_W, height: BANNER_H, justifyContent: 'flex-end', padding: spacing.base + 4 },
-        bannerTitle: { color: '#fff', fontSize: fonts.sizes.xxl, fontWeight: '800' },
+        banner: { width: SCREEN_W, height: BANNER_H, position: 'relative', overflow: 'hidden' },
+        bannerInfo: { flex: 1, justifyContent: 'flex-end', padding: spacing.base + 8, paddingBottom: 40 },
+        bannerTag: { color: colors.primary, fontSize: fonts.sizes.xs, fontWeight: '800', backgroundColor: '#fff', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, marginBottom: 8 },
+        bannerTitle: { color: '#fff', fontSize: fonts.sizes.xl + 2, fontWeight: '800', textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+        bannerPrice: { color: colors.primary, fontSize: fonts.sizes.lg, fontWeight: '700', marginTop: 4 },
         bannerSub: { color: 'rgba(255,255,255,0.9)', fontSize: fonts.sizes.base, marginTop: 2 },
-        shopNowBtn: { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: radius.full, paddingHorizontal: 16, paddingVertical: 7, alignSelf: 'flex-start' },
+        shopNowBtn: { marginTop: 15, backgroundColor: colors.primary, borderRadius: radius.full, paddingHorizontal: 20, paddingVertical: 10, alignSelf: 'flex-start' },
         shopNowText: { color: '#fff', fontWeight: '700', fontSize: fonts.sizes.sm },
-        dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
-        dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.border },
-        dotActive: { backgroundColor: colors.primary, width: 18 },
+        dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 15, left: 0, right: 0 },
+        dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)' },
+        dotActive: { backgroundColor: '#fff', width: 20 },
+
         section: { marginBottom: spacing.xl },
         sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.base, marginBottom: spacing.md },
         sectionTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.text },

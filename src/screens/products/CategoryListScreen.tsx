@@ -55,7 +55,7 @@ export default function CategoryListScreen({ route, navigation }: any) {
 
 const st = (colors: any, spacing: any, radius: any, fonts: any) =>
     StyleSheet.create({
-        list: { padding: spacing.base, paddingBottom: 80 },
+        list: { padding: spacing.base, paddingBottom: 120 },
         card: { flex: 1, backgroundColor: colors.card, borderRadius: radius.lg, overflow: 'hidden' },
         img: { width: '100%', height: 110, alignItems: 'center', justifyContent: 'center' },
         labelBox: { padding: spacing.sm },

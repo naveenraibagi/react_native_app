@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuthStore } from '../../stores/authStore';
 import { loginUser } from '../../services/auth.service';
+import { getErrorMessage } from '../../utils/error';
+import { showMessage } from 'react-native-flash-message';
 
 const schema = z.object({
     email: z.string().email('Enter a valid email'),
@@ -41,8 +43,14 @@ export default function LoginScreen({ navigation }: any) {
         try {
             const { token, user } = await loginUser(data.email, data.password);
             setAuth(user, token);
+            showMessage({
+                message: 'Success',
+                description: 'Logged in successfully',
+                type: 'success',
+            });
+            navigation.replace('App', { screen: 'AccountTab' });
         } catch (e: any) {
-            Alert.alert('Login Failed', e?.response?.data?.message ?? e.message ?? 'Invalid credentials');
+            Alert.alert('Login Failed', getErrorMessage(e, 'Invalid credentials'));
         } finally {
             setLoading(false);
         }
@@ -54,7 +62,7 @@ export default function LoginScreen({ navigation }: any) {
         <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.header}>
                 <Ionicons name="storefront" size={48} color="#fff" />
-                <Text style={s.appName}>ShopMobile</Text>
+                <Text style={s.appName}>SBDH CRAFT</Text>
                 <Text style={s.subtitle}>Your premium shopping experience</Text>
             </LinearGradient>
 
@@ -129,23 +137,6 @@ export default function LoginScreen({ navigation }: any) {
                             <Text style={s.loginBtnText}>Sign In</Text>
                         )}
                     </LinearGradient>
-                </TouchableOpacity>
-
-                {/* Divider */}
-                <View style={s.divider}>
-                    <View style={s.dividerLine} />
-                    <Text style={s.dividerText}>or continue as</Text>
-                    <View style={s.dividerLine} />
-                </View>
-
-                {/* Social – scaffold only */}
-                <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
-                    <Ionicons name="logo-google" size={20} color="#DB4437" />
-                    <Text style={s.socialText}>Sign in with Google</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.socialBtn} activeOpacity={0.85}>
-                    <Ionicons name="logo-apple" size={20} color={colors.text} />
-                    <Text style={s.socialText}>Sign in with Apple</Text>
                 </TouchableOpacity>
 
                 <View style={s.signupRow}>

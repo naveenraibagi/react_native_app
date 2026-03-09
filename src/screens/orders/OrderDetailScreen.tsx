@@ -98,7 +98,7 @@ export default function OrderDetailScreen({ route }: any) {
 const st = (c: any, sp: any, r: any, f: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: c.background },
-        content: { padding: sp.base, paddingBottom: 80 },
+        content: { padding: sp.base, paddingBottom: 120 },
         sectionTitle: { fontSize: f.sizes.base, fontWeight: '700', color: c.text, marginTop: sp.lg, marginBottom: sp.sm },
         card: { backgroundColor: c.card, borderRadius: r.lg, padding: sp.base, marginBottom: sp.md },
         row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5 },

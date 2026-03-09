@@ -100,10 +100,20 @@ export interface WCReview {
 // ────────────────────────────────────────────────────────────
 // Cart
 // ────────────────────────────────────────────────────────────
+export interface PPOMField {
+    title: string;
+    type: string;
+    data_name: string;
+    description: string;
+    required: string;
+    options?: any[];
+}
+
 export interface CartItem {
     product: WCProduct;
     variationId?: number;
     selectedAttributes?: Record<string, string>;
+    ppomFields?: Record<string, any>;
     quantity: number;
     price: number;
     lineTotal: number;

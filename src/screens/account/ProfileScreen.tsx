@@ -47,6 +47,45 @@ export default function ProfileScreen({ navigation }: any) {
         { label: 'System', val: 'system', icon: 'phone-portrait-outline' },
     ];
 
+    if (!user) {
+        return (
+            <View style={[s.flex, { justifyContent: 'center', padding: spacing.xl }]}>
+                <View style={{ alignItems: 'center', marginBottom: spacing.xl * 2 }}>
+                    <View style={[s.avatar, { backgroundColor: colors.primary + '11', alignItems: 'center', justifyContent: 'center', width: 100, height: 100, borderRadius: 50, marginBottom: spacing.lg }]}>
+                        <Ionicons name="person-outline" size={48} color={colors.primary} />
+                    </View>
+                    <Text style={[s.avatarName, { color: colors.text, fontSize: fonts.sizes.xl }]}>Welcome, Guest</Text>
+                    <Text style={[s.avatarEmail, { color: colors.textSecondary, textAlign: 'center', marginTop: 8 }]}>Sign in to track your orders, manage addresses, and more.</Text>
+                </View>
+
+                <TouchableOpacity
+                    style={[s.saveBtn, { marginTop: 0 }]}
+                    onPress={() => navigation.navigate('Auth', { screen: 'Login' })}
+                >
+                    <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.saveBtnGrad}>
+                        <Text style={s.saveBtnText}>Sign In / Create Account</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={[s.section, shadows.sm, { marginTop: spacing.xl, marginHorizontal: 0 }]}>
+                    <Text style={[s.label, { marginBottom: spacing.sm }]}>Appearance</Text>
+                    <View style={s.themeRow}>
+                        {themeOptions.map(({ label, val, icon }) => (
+                            <TouchableOpacity
+                                key={val}
+                                style={[s.themeBtn, mode === val && s.themeBtnActive]}
+                                onPress={() => setMode(val)}
+                            >
+                                <Ionicons name={icon as any} size={18} color={mode === val ? colors.primaryContrast : colors.textSecondary} />
+                                <Text style={[s.themeBtnText, mode === val && { color: colors.primaryContrast }]}>{label}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+            </View>
+        );
+    }
+
     return (
         <ScrollView style={s.flex} contentContainerStyle={s.content}>
             {/* Avatar */}
@@ -104,8 +143,8 @@ export default function ProfileScreen({ navigation }: any) {
                             style={[s.themeBtn, mode === val && s.themeBtnActive]}
                             onPress={() => setMode(val)}
                         >
-                            <Ionicons name={icon as any} size={18} color={mode === val ? '#fff' : colors.textSecondary} />
-                            <Text style={[s.themeBtnText, mode === val && { color: '#fff' }]}>{label}</Text>
+                            <Ionicons name={icon as any} size={18} color={mode === val ? colors.primaryContrast : colors.textSecondary} />
+                            <Text style={[s.themeBtnText, mode === val && { color: colors.primaryContrast }]}>{label}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -123,7 +162,7 @@ export default function ProfileScreen({ navigation }: any) {
 const st = (c: any, sp: any, r: any, f: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: c.background },
-        content: { paddingBottom: 80 },
+        content: { paddingBottom: 120 },
         avatarBg: { padding: sp.xl, alignItems: 'center', paddingBottom: 30 },
         avatarWrap: { marginBottom: 12 },
         avatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },

@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    Dimensions, RefreshControl,
+    Dimensions, RefreshControl, ActivityIndicator,
 } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTheme } from '../../hooks/useTheme';
 import { fetchProducts } from '../../services/products.service';
 import ProductCard from '../../components/product/ProductCard';
@@ -31,13 +31,35 @@ export default function ProductListScreen({ route, navigation }: any) {
     const [minPrice, setMinPrice] = useState<number | undefined>();
     const [maxPrice, setMaxPrice] = useState<number | undefined>();
     const [inStock, setInStock] = useState(false);
-    const [page, setPage] = useState(1);
-
-    const { data, isLoading, refetch, isFetching } = useQuery({
-        queryKey: ['products', categoryId, sort, minPrice, maxPrice, inStock, onSale, search, page],
-        queryFn: () => fetchProducts({ categoryId, sort, minPrice, maxPrice, inStock, onSale, search, page, perPage: 20 }),
+    const {
+        data,
+        isLoading,
+        refetch,
+        isFetching,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage
+    } = useInfiniteQuery({
+        queryKey: ['products', categoryId, sort, minPrice, maxPrice, inStock, onSale, search],
+        queryFn: ({ pageParam = 1 }) => fetchProducts({
+            categoryId,
+            sort,
+            minPrice,
+            maxPrice,
+            inStock,
+            onSale,
+            search,
+            page: pageParam,
+            perPage: 20
+        }),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage: any[], allPages: any[][]) => {
+            return lastPage.length === 20 ? allPages.length + 1 : undefined;
+        },
         staleTime: 3 * 60 * 1000,
     });
+
+    const products = data?.pages.flat() ?? [];
 
     const s = st(colors, spacing, radius, fonts);
     const cardW = (W - spacing.base * 2 - spacing.md) / 2;
@@ -82,17 +104,17 @@ export default function ProductListScreen({ route, navigation }: any) {
 
             {isLoading ? (
                 <SkeletonLoader rows={4} cols={2} cardHeight={220} />
-            ) : !data?.length ? (
+            ) : !products.length ? (
                 <EmptyState icon="cube-outline" title="No Products Found" subtitle="Try adjusting your filters or search query" />
             ) : (
                 <FlatList
-                    data={data}
+                    data={products}
                     numColumns={2}
                     keyExtractor={(i) => String(i.id)}
                     contentContainerStyle={s.list}
                     columnWrapperStyle={{ gap: spacing.md }}
                     ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-                    refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />}
+                    refreshControl={<RefreshControl refreshing={isFetching && !isLoading && !isFetchingNextPage} onRefresh={refetch} tintColor={colors.primary} />}
                     renderItem={({ item }) => (
                         <ProductCard
                             product={item}
@@ -100,8 +122,17 @@ export default function ProductListScreen({ route, navigation }: any) {
                             style={{ width: cardW }}
                         />
                     )}
-                    onEndReached={() => setPage((p) => p + 1)}
-                    onEndReachedThreshold={0.3}
+                    onEndReached={() => {
+                        if (hasNextPage && !isFetchingNextPage) {
+                            fetchNextPage();
+                        }
+                    }}
+                    onEndReachedThreshold={0.5}
+                    ListFooterComponent={isFetchingNextPage ? (
+                        <View style={{ paddingVertical: spacing.lg }}>
+                            <ActivityIndicator color={colors.primary} />
+                        </View>
+                    ) : null}
                 />
             )}
         </View>
@@ -121,5 +152,5 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         sortItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.base, paddingVertical: 12 },
         sortItemActive: { backgroundColor: colors.inputBg },
         sortItemText: { fontSize: fonts.sizes.sm, color: colors.text },
-        list: { padding: spacing.base, paddingBottom: 80 },
+        list: { padding: spacing.base, paddingBottom: 120 },
     });

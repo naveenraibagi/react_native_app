@@ -38,7 +38,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
         <FlatList
             data={data}
             keyExtractor={(o) => String(o.id)}
-            contentContainerStyle={{ padding: spacing.base, gap: spacing.md, paddingBottom: 80 }}
+            contentContainerStyle={{ padding: spacing.base, gap: spacing.md, paddingBottom: 120 }}
             refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />}
             renderItem={({ item: order }) => (
                 <TouchableOpacity style={[s.card, shadows.sm]} onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })} activeOpacity={0.88}>
