@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions,
-    FlatList, Alert, ActivityIndicator, TextInput,
+    FlatList, Alert, ActivityIndicator, TextInput, Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useQuery } from '@tanstack/react-query';
@@ -12,15 +12,17 @@ import {
     fetchProductById, fetchProductVariations, fetchProductReviews, createProductReview,
     fetchProductPPOMFields,
 } from '../../services/products.service';
+import { fetchLatestCoupons } from '../../services/orders.service';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useWishlistStore } from '../../stores/wishlistStore';
+import { useRecentlyViewedStore } from '../../stores/recentlyViewedStore';
 import ProductCard from '../../components/product/ProductCard';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import { formatCurrency } from '../../utils/currency';
 
 
-const { width: W } = Dimensions.get('window');
+const { width: W, height: H } = Dimensions.get('window');
 
 export default function ProductDetailScreen({ route, navigation }: any) {
     const { productId } = route.params;
@@ -35,6 +37,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     const [addingToCart, setAddingToCart] = useState(false);
     const [showAdded, setShowAdded] = useState(false);
     const [tab, setTab] = useState<'desc' | 'reviews'>('desc');
+    const [showFullImage, setShowFullImage] = useState(false);
 
     const { user } = useAuthStore();
     const [reviewRating, setReviewRating] = useState(5);
@@ -65,6 +68,24 @@ export default function ProductDetailScreen({ route, navigation }: any) {
         queryFn: () => fetchProductPPOMFields(productId),
     });
 
+    const { data: coupons } = useQuery({
+        queryKey: ['coupons', 'latest'],
+        queryFn: fetchLatestCoupons,
+    });
+
+    const applicableCoupon = coupons?.find((c: any) => 
+        c.product_ids?.includes(parseInt(productId)) || 
+        product?.categories?.some((cat: any) => c.product_categories?.includes(cat.id))
+    );
+
+    const { addItem: addRecentlyViewed } = useRecentlyViewedStore();
+
+    useEffect(() => {
+        if (product) {
+            addRecentlyViewed(product);
+        }
+    }, [product]);
+
     const s = st(colors, spacing, radius, fonts);
 
     if (isLoading || !product) return (
@@ -90,11 +111,35 @@ export default function ProductDetailScreen({ route, navigation }: any) {
         }
     };
 
+    const validatePPOMFields = () => {
+        if (!ppomFields) return true;
+        const fieldsList = Array.isArray(ppomFields) ? ppomFields : Object.values(ppomFields);
+        
+        for (const field of fieldsList) {
+            const isRequired = field.required === 'on' || field.required === 'yes' || field.required === 'sh';
+            if (isRequired) {
+                const dataName = field.data_name || field.id;
+                const value = ppomValues[dataName];
+                
+                if (!value || (Array.isArray(value) && value.length === 0)) {
+                    Alert.alert('Required Field', `Please fill in the "${field.title || field.data_name}" field.`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
     const handleAddToCart = async () => {
         if (product.type === 'variable' && !selectedVariation) {
             Alert.alert('Please select all options');
             return;
         }
+
+        if (!validatePPOMFields()) {
+            return;
+        }
+
         setAddingToCart(true);
         addItem(product, qty, selectedVariation?.id, selectedAttrs, ppomValues);
         setTimeout(() => {
@@ -138,7 +183,9 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                         onMomentumScrollEnd={(e) => setActiveImgIdx(Math.round(e.nativeEvent.contentOffset.x / W))}
                     >
                         {images.map((img, idx) => (
-                            <Image key={idx} source={{ uri: img.src }} style={{ width: W, height: W * 0.85 }} contentFit="cover" />
+                            <TouchableOpacity key={idx} activeOpacity={0.9} onPress={() => setShowFullImage(true)}>
+                                <Image source={{ uri: img.src }} style={{ width: W, height: W * 0.85 }} contentFit="cover" />
+                            </TouchableOpacity>
                         ))}
                     </ScrollView>
                     {/* Dots */}
@@ -168,13 +215,23 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                         ) : null}
                         {product.on_sale && product.regular_price && (
                             <Text style={s.oldPrice}>{formatCurrency(product.regular_price)}</Text>
-                        )}
+                        ) || null}
                         {product.on_sale && (
                             <View style={s.saleBadge}>
                                 <Text style={s.saleBadgeText}>SALE</Text>
                             </View>
-                        )}
+                        ) || null}
                     </View>
+
+                    {/* Coupon Suggestion */}
+                    {applicableCoupon && (
+                        <View style={s.suggestionBanner}>
+                            <Ionicons name="pricetag" size={16} color={colors.primary} />
+                            <Text style={s.suggestionText}>
+                                Use coupon <Text style={s.suggestionCode}>{applicableCoupon.code}</Text> for <Text style={s.suggestionAmount}>{applicableCoupon.discount_type === 'percent' ? `${applicableCoupon.amount}%` : formatCurrency(applicableCoupon.amount)}</Text> OFF!
+                            </Text>
+                        </View>
+                    )}
 
                     {/* Rating */}
                     {parseFloat(product.average_rating) > 0 && (
@@ -201,15 +258,15 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                     </View>
 
                     {/* Attributes / Variants */}
-                    {product.attributes?.filter((a) => a.variation).map((attr) => (
-                        <View key={attr.id} style={s.attrGroup}>
+                    {product.attributes?.filter((a) => a.variation).map((attr, idx) => (
+                        <View key={`${attr.id}-${attr.name}-${idx}`} style={s.attrGroup}>
                             <Text style={s.attrLabel}>{attr.name}</Text>
                             <View style={s.attrOptions}>
-                                {attr.options.map((opt) => {
+                                {attr.options.map((opt, oIdx) => {
                                     const selected = selectedAttrs[attr.name] === opt;
                                     return (
                                         <TouchableOpacity
-                                            key={opt}
+                                            key={`${attr.name}-${opt}-${oIdx}`}
                                             style={[s.attrChip, selected && s.attrChipActive]}
                                             onPress={() => handleAttrSelect(attr.name, opt)}
                                         >
@@ -246,7 +303,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                                     }
 
                                     return (
-                                        <View key={dataName} style={s.ppomField}>
+                                        <View key={`${dataName}-${idx}`} style={s.ppomField}>
                                             <Text style={s.ppomLabel}>
                                                 {fieldTitle} {isRequired && <Text style={{ color: colors.error }}>*</Text>}
                                             </Text>
@@ -258,21 +315,21 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                                                     placeholderTextColor={colors.textMuted}
                                                     multiline={fieldType === 'textarea'}
                                                     keyboardType={fieldType === 'number' ? 'numeric' : (fieldType === 'email' ? 'email-address' : 'default')}
-                                                    value={ppomValues[fieldTitle] || ''}
-                                                    onChangeText={(val) => setPpomValues(prev => ({ ...prev, [fieldTitle]: val }))}
+                                                    value={ppomValues[dataName] || ''}
+                                                    onChangeText={(val) => setPpomValues(prev => ({ ...prev, [dataName]: val }))}
                                                 />
                                             )}
 
                                             {(fieldType === 'select' || fieldType === 'radio') && (
                                                 <View style={s.attrOptions}>
-                                                    {options.map((opt: any, idx: number) => {
-                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(idx));
-                                                        const selected = ppomValues[fieldTitle] === optLabel;
+                                                    {options.map((opt: any, oIdx: number) => {
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(oIdx));
+                                                        const selected = ppomValues[dataName] === optLabel;
                                                         return (
                                                             <TouchableOpacity
-                                                                key={`${field.data_name}-${idx}`}
+                                                                key={`${dataName}-${optLabel}-${oIdx}`}
                                                                 style={[s.attrChip, selected && s.attrChipActive]}
-                                                                onPress={() => setPpomValues(prev => ({ ...prev, [fieldTitle]: optLabel }))}
+                                                                    onPress={() => setPpomValues(prev => ({ ...prev, [dataName]: optLabel }))}
                                                             >
                                                                 <Text style={[s.attrChipText, selected && { color: '#fff' }]}>{optLabel}</Text>
                                                             </TouchableOpacity>
@@ -283,19 +340,19 @@ export default function ProductDetailScreen({ route, navigation }: any) {
 
                                             {(fieldType === 'checkbox') && (
                                                 <View style={s.attrOptions}>
-                                                    {options.map((opt: any, idx: number) => {
-                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(idx));
-                                                        const currentVals = ppomValues[fieldTitle] || [];
+                                                    {options.map((opt: any, oIdx: number) => {
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.option || opt.label || String(oIdx));
+                                                        const currentVals = ppomValues[dataName] || [];
                                                         const selected = Array.isArray(currentVals) && currentVals.includes(optLabel);
                                                         return (
                                                             <TouchableOpacity
-                                                                key={`${dataName}-${idx}`}
+                                                                key={`${dataName}-${optLabel}-${oIdx}`}
                                                                 style={[s.attrChip, selected && s.attrChipActive]}
                                                                 onPress={() => {
                                                                     const next = selected
                                                                         ? currentVals.filter((v: string) => v !== optLabel)
                                                                         : [...(Array.isArray(currentVals) ? currentVals : []), optLabel];
-                                                                    setPpomValues(prev => ({ ...prev, [fieldTitle]: next }));
+                                                                    setPpomValues(prev => ({ ...prev, [dataName]: next }));
                                                                 }}
                                                             >
                                                                 <Text style={[s.attrChipText, selected && { color: '#fff' }]}>{optLabel}</Text>
@@ -315,8 +372,8 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                                                         style={s.ppomInput}
                                                         placeholder={`Enter ${fieldTitle} value`}
                                                         placeholderTextColor={colors.textMuted}
-                                                        value={ppomValues[fieldTitle] || ''}
-                                                        onChangeText={(val) => setPpomValues(prev => ({ ...prev, [fieldTitle]: val }))}
+                                                        value={ppomValues[dataName] || ''}
+                                                        onChangeText={(val) => setPpomValues(prev => ({ ...prev, [dataName]: val }))}
                                                     />
                                                 </View>
                                             )}
@@ -409,8 +466,8 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                             {(reviews ?? []).length === 0 ? (
                                 <Text style={s.noReviews}>No reviews yet</Text>
                             ) : (
-                                (reviews ?? []).map((r: any) => (
-                                    <View key={r.id} style={s.reviewCard}>
+                                (reviews ?? []).map((r: any, rIdx: number) => (
+                                    <View key={`${r.id}-${rIdx}`} style={s.reviewCard}>
                                         <View style={s.reviewHeader}>
                                             <Text style={s.reviewer}>{r.reviewer}</Text>
                                             <View style={s.reviewStars}>
@@ -427,6 +484,28 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Full Screen Image Modal */}
+            <Modal
+                visible={showFullImage}
+                transparent={false}
+                animationType="fade"
+                onRequestClose={() => setShowFullImage(false)}
+            >
+                <View style={[s.modalContainer, { backgroundColor: '#000' }]}>
+                    <Image
+                        source={{ uri: images[activeImgIdx]?.src }}
+                        style={s.fullImage}
+                        contentFit="contain"
+                    />
+                    <TouchableOpacity
+                        style={s.closeBtn}
+                        onPress={() => setShowFullImage(false)}
+                    >
+                        <Ionicons name="close" size={30} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -440,6 +519,9 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         heartBtn: { position: 'absolute', top: 50, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
         backBtn: { position: 'absolute', top: 50, left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
         content: { padding: spacing.base + 4, paddingBottom: 140 },
+        modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+        fullImage: { width: W, height: H },
+        closeBtn: { position: 'absolute', top: 50, right: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
         name: { fontSize: fonts.sizes.lg, fontWeight: '700', color: colors.text, marginBottom: 8 },
         priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
         price: { fontSize: fonts.sizes.xl, fontWeight: '800', color: colors.primary },
@@ -486,4 +568,19 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         ppomField: { marginBottom: 15 },
         ppomLabel: { fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.text, marginBottom: 8 },
         ppomInput: { height: 46, backgroundColor: colors.inputBg, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 12, color: colors.text, fontSize: fonts.sizes.sm },
+        suggestionBanner: { 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            backgroundColor: colors.primary + '11', 
+            paddingHorizontal: 12, 
+            paddingVertical: 10, 
+            borderRadius: radius.md, 
+            marginTop: 12, 
+            borderWidth: 1, 
+            borderColor: colors.primary + '33',
+            gap: 8
+        },
+        suggestionText: { fontSize: fonts.sizes.sm, color: colors.textSecondary, flex: 1 },
+        suggestionCode: { fontWeight: '800', color: colors.primary },
+        suggestionAmount: { fontWeight: '700', color: colors.success },
     });

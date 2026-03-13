@@ -33,10 +33,23 @@ export default function WishlistScreen({ navigation }: any) {
 }
 
 function WishlistItem({ productId, navigation, cardW }: any) {
-    const { data: product } = useQuery({
+    const { data: product, isLoading, isError } = useQuery({
         queryKey: ['product', productId],
-        queryFn: () => fetchProductById(productId),
+        queryFn: () => fetchProductById(productId).catch(e => {
+            console.error('Wishlist fetch error:', e);
+            throw e;
+        }),
+        retry: 1,
     });
-    if (!product) return <View style={{ width: cardW, height: 220 }} />;
-    return <ProductCard product={product} onPress={() => navigation.navigate('ProductDetail', { productId })} style={{ width: cardW }} />;
+
+    if (isLoading) return <View style={{ width: cardW, height: 220, backgroundColor: '#f5f5f5', borderRadius: 12 }} />;
+    if (isError || !product) return null;
+
+    return (
+        <ProductCard 
+            product={product} 
+            onPress={() => navigation.navigate('ProductDetail', { productId })} 
+            style={{ width: cardW }} 
+        />
+    );
 }

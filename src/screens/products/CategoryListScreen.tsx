@@ -25,27 +25,37 @@ export default function CategoryListScreen({ route, navigation }: any) {
     return (
         <FlatList
             data={data}
-            numColumns={2}
+            numColumns={1} // Switching to single column for "Cover Photo" look
             keyExtractor={(i) => String(i.id)}
             contentContainerStyle={s.list}
-            columnWrapperStyle={{ gap: spacing.md }}
-            ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+            ItemSeparatorComponent={() => <View style={{ height: spacing.lg }} />}
             renderItem={({ item }) => (
                 <TouchableOpacity
-                    style={[s.card, shadows.sm]}
+                    style={[s.card, shadows.md]}
                     onPress={() => navigation.navigate('ProductList', { categoryId: item.id, title: item.name })}
-                    activeOpacity={0.88}
+                    activeOpacity={0.9}
                 >
-                    {item.image ? (
-                        <Image source={{ uri: item.image.src }} style={s.img} />
-                    ) : (
-                        <LinearGradient colors={[colors.primary + '33', colors.primary + '66']} style={s.img}>
-                            <Ionicons name="grid-outline" size={36} color={colors.primary} />
-                        </LinearGradient>
-                    )}
-                    <View style={s.labelBox}>
-                        <Text style={s.name} numberOfLines={1}>{item.name}</Text>
-                        <Text style={s.count}>{item.count} Products</Text>
+                    <View style={s.imgContainer}>
+                        {item.image ? (
+                            <Image source={{ uri: item.image.src }} style={s.img} />
+                        ) : (
+                            <LinearGradient 
+                                colors={[colors.primary + '22', colors.primary + '44']} 
+                                style={s.img}
+                            >
+                                <Ionicons name="images-outline" size={48} color={colors.primary} />
+                            </LinearGradient>
+                        )}
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.8)']}
+                            style={s.overlay}
+                        />
+                        <View style={s.info}>
+                            <Text style={s.name}>{item.name}</Text>
+                            <View style={s.badge}>
+                                <Text style={s.count}>{item.count} PRODUCTS</Text>
+                            </View>
+                        </View>
                     </View>
                 </TouchableOpacity>
             )}
@@ -56,9 +66,54 @@ export default function CategoryListScreen({ route, navigation }: any) {
 const st = (colors: any, spacing: any, radius: any, fonts: any) =>
     StyleSheet.create({
         list: { padding: spacing.base, paddingBottom: 120 },
-        card: { flex: 1, backgroundColor: colors.card, borderRadius: radius.lg, overflow: 'hidden' },
-        img: { width: '100%', height: 110, alignItems: 'center', justifyContent: 'center' },
-        labelBox: { padding: spacing.sm },
-        name: { fontSize: fonts.sizes.base, fontWeight: '700', color: colors.text },
-        count: { fontSize: fonts.sizes.xs, color: colors.textSecondary, marginTop: 2 },
+        card: { 
+            backgroundColor: colors.card, 
+            borderRadius: radius.xl, 
+            overflow: 'hidden',
+        },
+        imgContainer: {
+            width: '100%',
+            height: 180,
+            position: 'relative',
+        },
+        img: { 
+            width: '100%', 
+            height: '100%', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+        },
+        overlay: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '60%',
+        },
+        info: {
+            position: 'absolute',
+            bottom: spacing.md,
+            left: spacing.md,
+            right: spacing.md,
+        },
+        name: { 
+            fontSize: fonts.sizes.lg, 
+            fontWeight: '800', 
+            color: '#fff',
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+        },
+        badge: {
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            alignSelf: 'flex-start',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: radius.sm,
+            marginTop: 6,
+            backdropFilter: 'blur(10px)',
+        } as any,
+        count: { 
+            fontSize: 10, 
+            fontWeight: '700',
+            color: '#fff',
+        },
     });

@@ -1,12 +1,13 @@
 import axios from 'axios';
+import { activeConfig } from './index';
 
 // ─────────────────────────────────────────────────
-// ⚙️  CONFIGURATION — fill these in before first run
+// ⚙️  CONFIGURATION — dynamically loaded from apps.ts
 // ─────────────────────────────────────────────────
 export const WC_CONFIG = {
-    BASE_URL: 'https://sbdhcrafts.sbdhpixels.com', // e.g. https://mystore.com
-    CONSUMER_KEY: 'ck_1a44719a2a46359537d99e0794a1a1eaded9b4e6',
-    CONSUMER_SECRET: 'cs_eae5f3d7526a6f748fb23609099112f048b47520',
+    BASE_URL: activeConfig.api.baseUrl,
+    CONSUMER_KEY: activeConfig.api.consumerKey,
+    CONSUMER_SECRET: activeConfig.api.consumerSecret,
     VERSION: 'wc/v3',
     JWT_AUTH_URL: '/wp-json/jwt-auth/v1/token',
     // Stripe publishable key (test or live)

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { wooApi, wpApi, WC_CONFIG } from '../config/api';
 import { WCProduct, ProductFilters } from '../types';
 
@@ -36,18 +37,44 @@ export const fetchProductById = async (id: number): Promise<WCProduct> => {
 
 export const fetchProductPPOMFields = async (productId: number) => {
     try {
-        const url = `/custom/v1/ppom-fields/${productId}`;
-        console.log('Fetching PPOM fields from:', url);
-        const { data } = await wpApi.get(url);
-        console.log('PPOM API Response:', data);
-        if (data.status === 'success' && data.ppom_fields) {
-            return data.ppom_fields;
+        // 1. Get product details to find the permalink
+        console.log('Fetching product permalink for ID:', productId);
+        const { data: product } = await wooApi.get(`/products/${productId}`);
+        const permalink = product.permalink;
+
+        if (!permalink) {
+            console.warn('No permalink found for product');
+            return [];
         }
-        return [];
+
+        // 2. Fetch the HTML content of the product page
+        console.log('Fetching product HTML from:', permalink);
+        // We use axios directly since wooApi/wpApi have /wp-json prefix
+        const { data: html } = await axios.get(permalink);
+
+        // 3. Extract ppom_input_vars using regex
+        // The script usually looks like: var ppom_input_vars = {"ppom_inputs": [...], ...};
+        const regex = /var\s+ppom_input_vars\s*=\s*({[\s\S]*?});/m;
+        const match = html.match(regex);
+
+        if (match && match[1]) {
+            try {
+                const config = JSON.parse(match[1]);
+                if (config.ppom_inputs && Array.isArray(config.ppom_inputs)) {
+                    console.log(`Successfully scraped ${config.ppom_inputs.length} PPOM fields from HTML`);
+                    return config.ppom_inputs;
+                }
+            } catch (parseError) {
+                console.warn('Failed to parse scraped PPOM JSON:', parseError);
+            }
+        }
+
+        console.warn('PPOM configuration not found in page HTML');
     } catch (error: any) {
-        console.warn('Error fetching PPOM fields:', error?.message || error);
-        return [];
+        console.warn('PPOM HTML scraping failed:', error.message);
     }
+
+    return [];
 };
 
 export const fetchProductVariations = async (productId: number) => {

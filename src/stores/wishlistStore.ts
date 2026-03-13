@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ACTIVE_APP_ID } from '../config';
 
 interface WishlistStore {
     ids: number[];
@@ -25,7 +26,7 @@ export const useWishlistStore = create<WishlistStore>()(
             clear: () => set({ ids: [] }),
         }),
         {
-            name: 'wishlist-storage',
+            name: `wishlist-storage-${ACTIVE_APP_ID}`,
             storage: createJSONStorage(() => AsyncStorage),
         }
     )

@@ -75,6 +75,13 @@ export const validateCoupon = async (code: string) => {
     return data[0];
 };
 
+export const fetchLatestCoupons = async () => {
+    const { data } = await wooApi.get('/coupons', {
+        params: { orderby: 'id', order: 'desc', per_page: 5, status: 'publish' }
+    });
+    return data;
+};
+
 export const fetchShippingMethods = async (countryCode = 'IN') => {
     // Fetch all shipping zones and their methods
     const { data: zones } = await wooApi.get('/shipping/zones');

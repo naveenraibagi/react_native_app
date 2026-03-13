@@ -84,6 +84,7 @@ export interface WCProduct {
     manage_stock: boolean;
     date_created: string;
     date_modified: string;
+    meta_data: { id: number; key: string; value: any }[];
 }
 
 export interface WCReview {
@@ -132,7 +133,7 @@ export interface WCAddress {
     first_name: string;
     last_name: string;
     address_1: string;
-    address_2: string;
+    address_2?: string;
     city: string;
     state: string;
     postcode: string;
@@ -191,6 +192,8 @@ export interface WCOrder {
     payment_method: string;
     payment_method_title: string;
     customer_note: string;
+    order_key: string;
+    payment_url?: string;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -275,6 +278,7 @@ export type CartStackParamList = {
     AddressForm: { type: 'billing' | 'shipping'; address?: WCAddress };
     ShippingMethod: undefined;
     Payment: { total: string };
+    PaymentWebView: { url: string; orderId: number };
     OrderConfirmation: { orderId: number };
 };
 

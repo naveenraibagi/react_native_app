@@ -12,6 +12,8 @@ import { createOrder, markOrderPaid, fetchPaymentGateways, fetchShippingMethods 
 import { WCAddress } from '../../types';
 import { formatCurrency } from '../../utils/currency';
 import { useQuery } from '@tanstack/react-query';
+import { useAddressStore } from '../../stores/addressStore';
+import { activeConfig } from '../../config';
 
 
 
@@ -24,12 +26,27 @@ export default function CheckoutScreen({ navigation }: any) {
     const { colors, spacing, radius, fonts, shadows } = useTheme();
     const { items, couponCode, couponDiscount, subtotal, clearCart } = useCartStore();
     const { user } = useAuthStore();
+    const { lastBilling, lastShipping } = useAddressStore();
 
-    const [billing, setBilling] = useState<WCAddress>(user?.billing ?? BLANK_ADDR);
-    const [shipping, setShipping] = useState<WCAddress>(user?.shipping ?? BLANK_ADDR);
+    const [billing, setBilling] = useState<WCAddress>(BLANK_ADDR);
+    const [shipping, setShipping] = useState<WCAddress>(BLANK_ADDR);
     const [sameAsBilling, setSameAsBilling] = useState(true);
     const [selectedGateway, setSelectedGateway] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (user?.billing?.first_name) {
+            setBilling(user.billing);
+        } else if (lastBilling?.first_name) {
+            setBilling(lastBilling);
+        }
+
+        if (user?.shipping?.first_name) {
+            setShipping(user.shipping);
+        } else if (lastShipping?.first_name) {
+            setShipping(lastShipping);
+        }
+    }, [user, lastBilling, lastShipping]);
 
     const { data: gateways, isLoading: gatewaysLoading } = useQuery<any[]>({
         queryKey: ['paymentGateways'],
@@ -84,37 +101,34 @@ export default function CheckoutScreen({ navigation }: any) {
                 paymentMethodTitle: selectedGateway?.title ?? 'Cash on Delivery',
             });
 
-            // 2. Handle Payment/Confirmation
-            if (selectedGateway?.id === 'cod') {
-                clearCart();
-            } else {
-                await markOrderPaid(order.id);
-                clearCart();
-            }
-
-            // 3. Guest Account Creation (Proactive)
+            // 2. Guest Account Creation (Proactive)
             if (!user) {
                 try {
                     const { registerUser, loginUser } = require('../../services/auth.service');
-                    // Register using email as username and phone as temp password
-                    const newUser = await registerUser(
-                        billing.email,
-                        billing.phone || 'password123',
-                        billing.first_name,
-                        billing.last_name
-                    );
-
-                    // Automatically log in
-                    const { token, user: loggedInUser } = await loginUser(billing.email, billing.phone || 'password123');
+                    const { token, user: loggedInUser } = await loginUser(billing.email, billing.phone || 'password123').catch(async () => {
+                        await registerUser(billing.email, billing.phone || 'password123', billing.first_name, billing.last_name);
+                        return await loginUser(billing.email, billing.phone || 'password123');
+                    });
                     const { useAuthStore } = require('../../stores/authStore');
                     useAuthStore.getState().setAuth(loggedInUser, token);
                 } catch (regErr) {
                     console.warn('Auto-registration failed:', regErr);
-                    // We don't block order flow if registration fails (e.g. user already exists)
                 }
             }
 
-            navigation.replace('OrderConfirmation', { orderId: order.id });
+            // 3. Handle Payment/Confirmation
+            if (selectedGateway?.id === 'cod') {
+                clearCart();
+                navigation.replace('OrderConfirmation', { orderId: order.id });
+            } else {
+                // For 3rd party payments, use the internal WebView
+                const paymentUrl = order.payment_url || `${activeConfig.api.baseUrl}/checkout/order-pay/${order.id}/?key=${order.order_key}`;
+                // We DON'T clear cart here. It will be cleared in PaymentWebViewScreen on success.
+                navigation.navigate('PaymentWebView', { 
+                    url: paymentUrl, 
+                    orderId: order.id 
+                });
+            }
 
         } catch (e: any) {
             Alert.alert('Order Failed', e?.response?.data?.message ?? e.message);
@@ -132,7 +146,6 @@ export default function CheckoutScreen({ navigation }: any) {
                 onPress={() => navigation.navigate('AddressForm', {
                     type: 'billing',
                     address: billing,
-                    onSave: (addr: WCAddress) => setBilling(addr)
                 })}
             >
                 <Ionicons name="location-outline" size={20} color={colors.primary} />
@@ -168,7 +181,6 @@ export default function CheckoutScreen({ navigation }: any) {
                         onPress={() => navigation.navigate('AddressForm', {
                             type: 'shipping',
                             address: shipping,
-                            onSave: (addr: WCAddress) => setShipping(addr)
                         })}
                     >
                         <Ionicons name="location-outline" size={20} color={colors.primary} />
@@ -229,7 +241,7 @@ export default function CheckoutScreen({ navigation }: any) {
                             {selectedGateway?.id === m.id && <View style={s.radioDot} />}
                         </View>
                         <Ionicons
-                            name={m.id === 'cod' ? 'cash-outline' : 'payment-outline'}
+                            name={m.id === 'cod' ? 'cash-outline' : 'card-outline'}
                             size={20}
                             color={selectedGateway?.id === m.id ? colors.primary : colors.textSecondary}
                         />

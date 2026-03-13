@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import FlashMessage from 'react-native-flash-message';
+import StaticSplashScreen from './src/screens/common/StaticSplashScreen';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +18,18 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  const [isSplashVisible, setIsSplashVisible] = React.useState(true);
+
+  if (isSplashVisible) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StaticSplashScreen onComplete={() => setIsSplashVisible(false)} />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

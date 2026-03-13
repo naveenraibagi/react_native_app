@@ -3,14 +3,16 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuthStore } from '../../stores/authStore';
+import { useAddressStore } from '../../stores/addressStore';
 
 export default function AddressBookScreen({ navigation }: any) {
     const { colors, spacing, radius, fonts, shadows } = useTheme();
     const { user } = useAuthStore();
+    const { lastBilling, lastShipping } = useAddressStore();
 
     const addresses = [
-        { type: 'Billing', data: user?.billing },
-        { type: 'Shipping', data: user?.shipping },
+        { type: 'Billing', data: user?.billing?.first_name ? user.billing : lastBilling },
+        { type: 'Shipping', data: user?.shipping?.first_name ? user.shipping : lastShipping },
     ];
 
     const s = st(colors, spacing, radius, fonts);

@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WCUser } from '../types';
 import * as SecureStore from 'expo-secure-store';
+import { ACTIVE_APP_ID } from '../config';
 
 interface AuthStore {
     user: WCUser | null;
@@ -33,7 +34,7 @@ export const useAuthStore = create<AuthStore>()(
             },
         }),
         {
-            name: 'auth-storage',
+            name: `auth-storage-${ACTIVE_APP_ID}`,
             storage: createJSONStorage(() => AsyncStorage),
             partialize: (state) => ({
                 user: state.user,

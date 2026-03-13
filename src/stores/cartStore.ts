@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CartItem, WCProduct } from '../types';
+import { ACTIVE_APP_ID } from '../config';
 
 interface CartStore {
     items: CartItem[];
@@ -109,7 +110,7 @@ export const useCartStore = create<CartStore>()(
             subtotal: () => get().items.reduce((sum, i) => sum + i.lineTotal, 0),
         }),
         {
-            name: 'cart-storage',
+            name: `cart-storage-${ACTIVE_APP_ID}`,
             storage: createJSONStorage(() => AsyncStorage),
         }
     )

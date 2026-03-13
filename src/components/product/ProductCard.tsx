@@ -8,6 +8,12 @@ import { useWishlistStore } from '../../stores/wishlistStore';
 import { useCartStore } from '../../stores/cartStore';
 import { WCProduct } from '../../types';
 import { formatCurrency } from '../../utils/currency';
+import { activeConfig } from '../../config';
+
+const LOGO_MAP: Record<string, any> = {
+    'sbdh-crafts': require('../../../assets/apps/sbdh-crafts/icon.png'),
+    'sbdh-pixels': require('../../../assets/apps/sbdh-pixels/icon.png'),
+};
 
 
 interface Props {
@@ -16,7 +22,7 @@ interface Props {
     style?: object;
 }
 
-export default function ProductCard({ product, onPress, style }: Props) {
+export function ProductCard({ product, onPress, style }: Props) {
     const { colors, spacing, radius, fonts, shadows } = useTheme();
     const { toggle, isInWishlist } = useWishlistStore();
     const { addItem } = useCartStore();
@@ -30,12 +36,35 @@ export default function ProductCard({ product, onPress, style }: Props) {
 
     const s = st(colors, spacing, radius, fonts);
 
+    const [isAdded, setIsAdded] = React.useState(false);
+
+    const handleAdd = () => {
+        // 1. Check if product has PPOM metadata
+        const hasPPOM = product.meta_data?.some((m: any) => 
+            m.key.toLowerCase().includes('ppom') || 
+            m.key === '_product_addons'
+        );
+
+        if (hasPPOM || product.type !== 'simple') {
+            // Redirect to detail if customization is needed
+            onPress();
+            return;
+        }
+
+        // 2. Add to cart and show feedback
+        addItem(product);
+        setIsAdded(true);
+        setTimeout(() => setIsAdded(false), 2000);
+    };
+
+    const logoSource = LOGO_MAP[activeConfig.id] || require('../../../assets/icon.png');
+
     return (
         <TouchableOpacity style={[s.card, shadows.sm, style]} onPress={onPress} activeOpacity={0.92}>
             {/* Image */}
             <View style={s.imgWrap}>
                 <Image
-                    source={image ? { uri: image } : require('../../../assets/icon.png')}
+                    source={image ? { uri: image } : logoSource}
                     style={s.img}
                     contentFit="cover"
                     transition={300}
@@ -79,15 +108,18 @@ export default function ProductCard({ product, onPress, style }: Props) {
                 </View>
 
                 {/* Add to Cart */}
-                {product.stock_status === 'instock' && product.type === 'simple' && (
+                {product.stock_status === 'instock' && (
                     <TouchableOpacity
                         style={s.addBtn}
                         activeOpacity={0.85}
-                        onPress={() => addItem(product)}
+                        onPress={handleAdd}
                     >
-                        <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.addBtnGrad}>
-                            <Ionicons name="add" size={16} color="#fff" />
-                            <Text style={s.addBtnText}>Add</Text>
+                        <LinearGradient 
+                            colors={isAdded ? [colors.success, colors.success] : [colors.primary, colors.primaryDark]} 
+                            style={s.addBtnGrad}
+                        >
+                            <Ionicons name={isAdded ? "checkmark" : "add"} size={16} color="#fff" />
+                            <Text style={s.addBtnText}>{isAdded ? 'Added' : 'Add'}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 )}
@@ -95,6 +127,8 @@ export default function ProductCard({ product, onPress, style }: Props) {
         </TouchableOpacity>
     );
 }
+
+export default React.memo(ProductCard);
 
 const st = (colors: any, spacing: any, radius: any, fonts: any) =>
     StyleSheet.create({

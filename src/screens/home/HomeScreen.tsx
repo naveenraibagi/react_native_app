@@ -9,20 +9,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
 import { fetchProducts, fetchCategories } from '../../services/products.service';
+import { fetchLatestCoupons } from '../../services/orders.service';
 import { useAuthStore } from '../../stores/authStore';
+import { useCartStore } from '../../stores/cartStore';
+import { useWishlistStore } from '../../stores/wishlistStore';
+import { useRecentlyViewedStore } from '../../stores/recentlyViewedStore';
 import ProductCard from '../../components/product/ProductCard';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
+import OfferPopup from '../../components/common/OfferPopup';
 import { formatCurrency } from '../../utils/currency';
 import { WCProduct } from '../../types';
 
 
+import { activeConfig } from '../../config';
+
 const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_H = 220;
 
+const LOGO_MAP: Record<string, any> = {
+    'sbdh-crafts': require('../../../assets/apps/sbdh-crafts/icon.png'),
+    'sbdh-pixels': require('../../../assets/apps/sbdh-pixels/icon.png'),
+};
 
 export default function HomeScreen({ navigation }: any) {
-    const { colors, spacing, radius, fonts, isDark } = useTheme();
+    const { colors, spacing, radius, fonts, isDark, shadows } = useTheme();
+    const logoSource = LOGO_MAP[activeConfig.id] || require('../../../assets/icon.png');
     const { user } = useAuthStore();
+    const cartCount = useCartStore(s => s.itemCount());
+    const wishlistCount = useWishlistStore(s => s.ids.length);
     const [activeBanner, setActiveBanner] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -50,16 +64,30 @@ export default function HomeScreen({ navigation }: any) {
         staleTime: 5 * 60 * 1000,
     });
 
+    const { data: allProducts, isLoading: allLoading, refetch: refetchAll } = useQuery({
+        queryKey: ['products', 'all'],
+        queryFn: () => fetchProducts({ perPage: 20 }),
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const { data: coupons } = useQuery({
+        queryKey: ['coupons', 'latest'],
+        queryFn: fetchLatestCoupons,
+        staleTime: 10 * 60 * 1000,
+    });
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await Promise.all([refetchBanners(), refetchCats(), refetchFeat(), refetchSale()]);
+        await Promise.all([refetchBanners(), refetchCats(), refetchFeat(), refetchSale(), refetchAll()]);
         setRefreshing(false);
     }, []);
 
 
-    const s = st(colors, spacing, radius, fonts);
+    const s = st(colors, spacing, radius, fonts, shadows);
 
-    const renderCategory = ({ item }: any) => (
+    const recentlyViewed = useRecentlyViewedStore(s => s.items);
+
+    const renderCategory = useCallback(({ item }: any) => (
         <TouchableOpacity
             style={s.catCard}
             onPress={() => navigation.navigate('ProductList', { categoryId: item.id, title: item.name })}
@@ -75,7 +103,15 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={s.catName} numberOfLines={1}>{item.name}</Text>
             <Text style={s.catCount}>{item.count} items</Text>
         </TouchableOpacity>
-    );
+    ), [navigation, colors, s]);
+
+    const renderProduct = useCallback(({ item }: { item: WCProduct }) => (
+        <ProductCard
+            product={item}
+            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+            style={{ width: (SCREEN_W - spacing.base * 2 - spacing.md) / 2, marginHorizontal: 0 }}
+        />
+    ), [navigation, spacing, SCREEN_W]);
 
     return (
         <View style={s.flex}>
@@ -84,23 +120,42 @@ export default function HomeScreen({ navigation }: any) {
             {/* Header */}
             <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.header}>
                 <View style={s.headerContent}>
-                    <View>
-                        <Text style={s.greeting}>Hello, {user?.first_name || 'Shopper'} 👋</Text>
-                        <Text style={s.tagline}>What are you looking for today?</Text>
+                    <View style={s.brandContainer}>
+                        <Text style={s.brandMain}>SBDH </Text>
+                        <Text style={s.brandSub}>PIXELS</Text>
                     </View>
                     <View style={s.headerIcons}>
-                        <TouchableOpacity
-                            style={s.headerIconBtn}
-                            onPress={() => navigation.navigate('SearchTab')}
-                        >
-                            <Ionicons name="search" size={22} color="#fff" />
+                        <TouchableOpacity style={s.headerIconBtn} onPress={() => navigation.navigate('WishlistTab')}>
+                            <Ionicons name="heart-outline" size={20} color="#fff" />
+                            {wishlistCount > 0 && (
+                                <View style={[s.badge, { backgroundColor: '#FF4781' }]}>
+                                    <Text style={s.badgeText}>{wishlistCount > 99 ? '99+' : wishlistCount}</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                         <TouchableOpacity style={s.headerIconBtn} onPress={() => navigation.navigate('CartTab')}>
-                            <Ionicons name="cart-outline" size={22} color="#fff" />
+                            <Ionicons name="cart-outline" size={20} color="#fff" />
+                            {cartCount > 0 && (
+                                <View style={s.badge}>
+                                    <Text style={s.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </View>
             </LinearGradient>
+
+            {/* Long Search Bar (Flipkart Style) */}
+            <View style={s.searchBarContainer}>
+                <TouchableOpacity
+                    style={s.searchBar}
+                    activeOpacity={0.9}
+                    onPress={() => navigation.navigate('SearchTab')}
+                >
+                    <Ionicons name="search" size={20} color={colors.textMuted} />
+                    <Text style={s.searchPlaceholder}>Search for products, brands and more</Text>
+                </TouchableOpacity>
+            </View>
 
             <ScrollView
                 style={s.scroll}
@@ -131,7 +186,7 @@ export default function HomeScreen({ navigation }: any) {
                                     >
                                         <View style={s.banner}>
                                             <Image
-                                                source={product.images?.[0] ? { uri: product.images[0].src } : require('../../../assets/icon.png')}
+                                                source={product.images?.[0] ? { uri: product.images[0].src } : logoSource}
                                                 style={StyleSheet.absoluteFillObject}
                                             />
                                             <LinearGradient
@@ -186,6 +241,43 @@ export default function HomeScreen({ navigation }: any) {
                     )}
                 </View>
 
+                {/* Recently Viewed */}
+                {recentlyViewed.length > 0 && (
+                    <View style={s.section}>
+                        <View style={s.sectionHeader}>
+                            <View>
+                                <Text style={s.sectionTitle}>Recently Viewed</Text>
+                                <Text style={s.sectionSubTitle}>Pick up where you left off</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => useRecentlyViewedStore.getState().clear()}>
+                                <Text style={s.seeAll}>Clear</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <FlatList
+                            data={recentlyViewed}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity 
+                                    style={s.recentCard}
+                                    onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                                    activeOpacity={0.8}
+                                >
+                                    <View style={s.recentImgWrap}>
+                                        <Image 
+                                            source={item.images?.[0] ? { uri: item.images[0].src } : logoSource} 
+                                            style={s.recentImg} 
+                                        />
+                                    </View>
+                                    <Text style={s.recentName} numberOfLines={1}>{item.name}</Text>
+                                </TouchableOpacity>
+                            )}
+                            keyExtractor={(i) => `recent-${i.id}`}
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
+                        />
+                    </View>
+                )}
+
                 {/* Featured Products */}
                 <View style={s.section}>
                     <View style={s.sectionHeader}>
@@ -199,24 +291,21 @@ export default function HomeScreen({ navigation }: any) {
                     ) : (
                         <FlatList
                             data={featured}
-                            renderItem={({ item }) => (
-                                <ProductCard
-                                    product={item}
-                                    onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-                                    style={{ width: (SCREEN_W - spacing.base * 2 - spacing.md) / 2, marginHorizontal: 0 }}
-                                />
-                            )}
+                            renderItem={renderProduct}
                             keyExtractor={(i) => String(i.id)}
                             numColumns={2}
                             scrollEnabled={false}
                             contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
                             columnWrapperStyle={{ gap: spacing.md }}
+                            initialNumToRender={4}
+                            maxToRenderPerBatch={4}
+                            windowSize={5}
                         />
                     )}
                 </View>
 
                 {/* On Sale */}
-                <View style={[s.section, { marginBottom: 120 }]}>
+                <View style={s.section}>
                     <View style={s.sectionHeader}>
                         <Text style={s.sectionTitle}>⚡ On Sale</Text>
                         <TouchableOpacity onPress={() => navigation.navigate('ProductList', { title: 'Sale', onSale: true })}>
@@ -228,35 +317,105 @@ export default function HomeScreen({ navigation }: any) {
                     ) : (
                         <FlatList
                             data={onSale}
-                            renderItem={({ item }) => (
-                                <ProductCard
-                                    product={item}
-                                    onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-                                    style={{ width: (SCREEN_W - spacing.base * 2 - spacing.md) / 2, marginHorizontal: 0 }}
-                                />
-                            )}
+                            renderItem={renderProduct}
                             keyExtractor={(i) => String(i.id)}
                             numColumns={2}
                             scrollEnabled={false}
                             contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
                             columnWrapperStyle={{ gap: spacing.md }}
+                            initialNumToRender={4}
+                            maxToRenderPerBatch={4}
+                            windowSize={5}
+                        />
+                    )}
+                </View>
+
+                {/* All Products */}
+                <View style={[s.section, { marginBottom: 120 }]}>
+                    <View style={s.sectionHeader}>
+                        <Text style={s.sectionTitle}>✨ All Products</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('ProductList', { title: 'All Products' })}>
+                            <Text style={s.seeAll}>See All</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {allLoading ? (
+                        <SkeletonLoader rows={2} cols={2} cardHeight={220} />
+                    ) : (
+                        <FlatList
+                            data={allProducts}
+                            renderItem={renderProduct}
+                            keyExtractor={(i) => String(i.id)}
+                            numColumns={2}
+                            scrollEnabled={false}
+                            contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
+                            columnWrapperStyle={{ gap: spacing.md }}
+                            initialNumToRender={6}
+                            maxToRenderPerBatch={6}
+                            windowSize={5}
                         />
                     )}
                 </View>
             </ScrollView>
+
+            {/* Dynamic Offer Popup */}
+            {coupons?.[0] && (
+                <OfferPopup 
+                    coupon={coupons[0]} 
+                    onClose={() => {}} 
+                />
+            )}
         </View>
     );
 }
 
-const st = (colors: any, spacing: any, radius: any, fonts: any) =>
+const st = (colors: any, spacing: any, radius: any, fonts: any, shadows: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: colors.background },
-        header: { paddingTop: 55, paddingBottom: 18, paddingHorizontal: spacing.base },
+        header: { paddingTop: 40, paddingBottom: 12, paddingHorizontal: spacing.base },
         headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
         greeting: { color: '#fff', fontSize: fonts.sizes.lg, fontWeight: '700' },
         tagline: { color: 'rgba(255,255,255,0.8)', fontSize: fonts.sizes.sm, marginTop: 2 },
-        headerIcons: { flexDirection: 'row', gap: 8 },
-        headerIconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+        headerIcons: { flexDirection: 'row', gap: 12 },
+        headerIconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+        searchBarContainer: {
+            backgroundColor: colors.primaryDark,
+            paddingHorizontal: spacing.base,
+            paddingBottom: 12,
+            marginTop: -1,
+        },
+        brandContainer: { flexDirection: 'row', alignItems: 'center' },
+        brandMain: { color: '#fff', fontSize: 22, fontWeight: '900', letterSpacing: 0.5 },
+        brandSub: { color: '#FF9500', fontSize: 22, fontWeight: '900', letterSpacing: 0.5 },
+        searchBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: '#fff',
+            height: 46,
+            borderRadius: radius.full, // Rounded Pill like Flipkart
+            paddingHorizontal: 16,
+            gap: 10,
+            ...shadows.sm,
+        },
+        searchPlaceholder: {
+            color: colors.textMuted,
+            fontSize: fonts.sizes.sm,
+            fontWeight: '400',
+        },
+        badge: {
+            position: 'absolute',
+            top: -4,
+            right: -4,
+            backgroundColor: colors.badge,
+            minWidth: 16,
+            height: 16,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 2,
+            borderWidth: 1.5,
+            borderColor: colors.surface,
+        },
+        badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
         scroll: { flex: 1 },
         bannerSection: { marginBottom: spacing.lg },
         banner: { width: SCREEN_W, height: BANNER_H, position: 'relative', overflow: 'hidden' },
@@ -274,8 +433,22 @@ const st = (colors: any, spacing: any, radius: any, fonts: any) =>
         section: { marginBottom: spacing.xl },
         sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.base, marginBottom: spacing.md },
         sectionTitle: { fontSize: fonts.sizes.md, fontWeight: '700', color: colors.text },
+        sectionSubTitle: { fontSize: fonts.sizes.xs, color: colors.textMuted, marginTop: 2 },
         seeAll: { fontSize: fonts.sizes.sm, color: colors.primary, fontWeight: '600' },
         catCard: { alignItems: 'center', width: 90 },
+        recentCard: { alignItems: 'center', width: 75 },
+        recentImgWrap: { 
+            width: 64, 
+            height: 64, 
+            borderRadius: 32, 
+            borderWidth: 2, 
+            borderColor: colors.primary + '22', 
+            padding: 2, 
+            marginBottom: 6,
+            backgroundColor: colors.surface
+        },
+        recentImg: { width: '100%', height: '100%', borderRadius: 30 },
+        recentName: { fontSize: 10, color: colors.text, textAlign: 'center', fontWeight: '500' },
         catImg: { width: 72, height: 72, borderRadius: radius.lg, marginBottom: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surface },
         catName: { fontSize: fonts.sizes.xs + 1, fontWeight: '600', color: colors.text, textAlign: 'center' },
         catCount: { fontSize: fonts.sizes.xs, color: colors.textMuted, textAlign: 'center' },

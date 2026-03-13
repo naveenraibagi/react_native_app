@@ -102,7 +102,7 @@ export default function SearchScreen({ navigation }: any) {
 
 const st = (colors: any, spacing: any, radius: any, fonts: any) =>
     StyleSheet.create({
-        flex: { flex: 1, backgroundColor: colors.background },
+        flex: { flex: 1, backgroundColor: colors.background, paddingTop: 70 },
         searchBar: {
             flexDirection: 'row', alignItems: 'center', gap: 10,
             margin: spacing.base, paddingHorizontal: spacing.md, height: 48,

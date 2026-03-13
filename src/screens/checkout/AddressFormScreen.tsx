@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
+import { useAddressStore } from '../../stores/addressStore';
 
 const schema = z.object({
     first_name: z.string().min(1, 'Required'),
@@ -32,9 +33,13 @@ export default function AddressFormScreen({ route, navigation }: any) {
         },
     });
 
+    const { saveBilling, saveShipping } = useAddressStore();
+
     const onSave = (data: FormData) => {
-        if (onSaveCallback) {
-            onSaveCallback(data);
+        if (type === 'billing') {
+            saveBilling(data);
+        } else {
+            saveShipping(data);
         }
         navigation.goBack();
     };
@@ -93,7 +98,7 @@ export default function AddressFormScreen({ route, navigation }: any) {
 const st = (c: any, sp: any, r: any, f: any) =>
     StyleSheet.create({
         flex: { flex: 1, backgroundColor: c.background },
-        content: { padding: sp.base, paddingBottom: 60 },
+        content: { padding: sp.base, paddingBottom: 120 },
         heading: { fontSize: f.sizes.lg, fontWeight: '700', color: c.text, marginBottom: sp.lg },
         row: { flexDirection: 'row', gap: sp.base },
         half: { flex: 1 },

@@ -9,10 +9,12 @@ import { useTheme } from '../../hooks/useTheme';
 import { useAuthStore } from '../../stores/authStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { updateCustomer } from '../../services/auth.service';
+import { useAddressStore } from '../../stores/addressStore';
 
 export default function ProfileScreen({ navigation }: any) {
     const { colors, spacing, radius, fonts, shadows } = useTheme();
     const { user, updateUser, logout } = useAuthStore();
+    const { lastBilling } = useAddressStore();
     const { mode, setMode } = useThemeStore();
     const [firstName, setFirstName] = useState(user?.first_name ?? '');
     const [lastName, setLastName] = useState(user?.last_name ?? '');
@@ -104,7 +106,7 @@ export default function ProfileScreen({ navigation }: any) {
             </LinearGradient>
 
             {/* Quick Links */}
-            <View style={[s.section, shadows.sm]}>
+            <View style={[s.section, shadows.sm, { marginTop: spacing.md }]}>
                 {[
                     { icon: 'receipt-outline', label: 'My Orders', screen: 'OrderHistory' },
                     { icon: 'location-outline', label: 'My Addresses', screen: 'AddressBook' },
@@ -118,6 +120,31 @@ export default function ProfileScreen({ navigation }: any) {
                     </TouchableOpacity>
                 ))}
             </View>
+
+            {/* Address Preview */}
+            {(user?.billing?.first_name || lastBilling?.first_name) && (
+                <>
+                    <Text style={s.sectionTitle}>Default Address</Text>
+                    <View style={[s.section, shadows.sm, { gap: 4, marginTop: spacing.xs }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <Ionicons name="location-outline" size={16} color={colors.primary} />
+                            <Text style={{ fontSize: fonts.sizes.sm, fontWeight: '700', color: colors.text }}>
+                                {user?.billing?.first_name ? 'Profile Billing' : 'Last Used'}
+                            </Text>
+                        </View>
+                        {(() => {
+                            const d = user?.billing?.first_name ? user.billing : lastBilling;
+                            return (
+                                <>
+                                    <Text style={s.addrText}>{d?.first_name} {d?.last_name}</Text>
+                                    <Text style={s.addrText} numberOfLines={1}>{d?.address_1}, {d?.city}</Text>
+                                    <Text style={s.addrText}>{d?.phone}</Text>
+                                </>
+                            );
+                        })()}
+                    </View>
+                </>
+            )}
 
             {/* Edit Profile */}
             <Text style={s.sectionTitle}>Edit Profile</Text>
@@ -168,7 +195,7 @@ const st = (c: any, sp: any, r: any, f: any) =>
         avatar: { width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: 'rgba(255,255,255,0.5)' },
         avatarName: { color: '#fff', fontSize: f.sizes.lg, fontWeight: '700' },
         avatarEmail: { color: 'rgba(255,255,255,0.8)', fontSize: f.sizes.sm, marginTop: 2 },
-        section: { backgroundColor: c.card, borderRadius: r.lg, padding: sp.base, marginHorizontal: sp.base, marginBottom: sp.md },
+        section: { backgroundColor: c.card, borderRadius: r.lg, padding: sp.base, marginHorizontal: sp.base, marginBottom: sp.xl },
         sectionTitle: { fontSize: f.sizes.base, fontWeight: '700', color: c.text, marginBottom: sp.sm, marginTop: sp.lg, paddingHorizontal: sp.base },
         linkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: sp.sm, gap: sp.md },
         linkIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.primary + '22', alignItems: 'center', justifyContent: 'center' },
@@ -182,6 +209,7 @@ const st = (c: any, sp: any, r: any, f: any) =>
         themeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: r.md, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.inputBg },
         themeBtnActive: { backgroundColor: c.primary, borderColor: c.primary },
         themeBtnText: { fontSize: f.sizes.xs, fontWeight: '700', color: c.textSecondary },
+        addrText: { fontSize: f.sizes.sm, color: c.textSecondary },
         logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: sp.base, padding: sp.base, backgroundColor: c.card, borderRadius: r.lg },
         logoutText: { fontSize: f.sizes.base, fontWeight: '700' },
     });

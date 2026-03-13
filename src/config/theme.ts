@@ -27,32 +27,31 @@ export const COLORS = {
         shadow: 'rgba(0, 0, 0, 0.1)',
     },
     dark: {
-        primary: '#F0EFF8',
-        primaryDark: '#FFFFFF',
-        secondary: '#A0A8B8',
-        background: '#0F0E1A',
-        // ... (rest of dark theme omitted for brevity if using replace_file_content correctly, but I need to be careful with the target content)
-        surface: '#1A1927',
-        card: '#1E1D2E',
-        border: '#2D2B45',
-        text: '#F0EFF8',
-        textSecondary: '#A0A8B8',
-        textMuted: '#6B7280',
+        primary: '#6366F1',        // Royal Indigo
+        primaryDark: '#4F46E5',
+        secondary: '#94A3B8',      // Slate 400
+        background: '#0F172A',     // Slate 900
+        surface: '#1E293B',        // Slate 800
+        card: '#1E293B',
+        border: '#334155',         // Slate 700
+        text: '#F8FAFC',           // Slate 50
+        textSecondary: '#CBD5E1',  // Slate 300
+        textMuted: '#94A3B8',      // Slate 400
         error: '#F87171',
         success: '#34D399',
         warning: '#FBBF24',
-        badge: '#FF6584',
+        badge: '#6366F1',
         primaryContrast: '#FFFFFF',
-        skeleton: '#2D2B45',
-        overlay: 'rgba(0,0,0,0.6)',
-        tabBar: '#1A1927',
-        tabBarActive: '#7C74FF',
-        tabBarInactive: '#6B7280',
+        skeleton: '#334155',
+        overlay: 'rgba(0,0,0,0.7)',
+        tabBar: '#1E293B',
+        tabBarActive: '#6366F1',
+        tabBarInactive: '#94A3B8',
         star: '#FBBF24',
         sale: '#F87171',
-        heart: '#FF6584',
-        inputBg: '#2D2B45',
-        shadow: 'rgba(0,0,0,0.4)',
+        heart: '#F43F5E',
+        inputBg: '#334155',
+        shadow: 'rgba(0,0,0,0.5)',
     },
 };
 
