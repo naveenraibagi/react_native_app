@@ -13,7 +13,7 @@ module.exports = ({ config }) => ({
   icon: activeConfig.assets.icon,
   userInterfaceStyle: 'automatic',
   splash: {
-    ...(activeConfig.assets.splash ? { image: activeConfig.assets.splash } : {}),
+    ...(activeConfig.assets.splash && activeConfig.assets.splash.trim() !== '' ? { image: activeConfig.assets.splash } : {}),
     resizeMode: 'contain',
     backgroundColor: activeConfig.assets.splashBackgroundColor || '#FFFFFF',
   },
@@ -30,21 +30,12 @@ module.exports = ({ config }) => ({
       backgroundColor: activeConfig.assets.adaptiveIconBackground,
     },
     package: activeConfig.packageName,
-    permissions: ['INTERNET', 'VIBRATE'],
+    permissions: ['INTERNET', 'VIBRATE', 'POST_NOTIFICATIONS'],
   },
   web: {
     favicon: activeConfig.assets.favicon,
   },
-  plugins: [
-    [
-      'expo-notifications',
-      {
-        icon: activeConfig.assets.icon,
-        color: '#6C63FF',
-      },
-    ],
-    'expo-video',
-  ],
+  plugins: ['expo-video', 'expo-notifications'],
   extra: {
     eas: {
       projectId: activeConfig.eas.projectId,

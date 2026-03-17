@@ -6,7 +6,7 @@ const APPS = {
         version: '1.0.0',
         packageName: 'com.sbdh.app',
         bundleIdentifier: 'com.sbdh.app',
-        instagramHandle: 'sbdhcrafts',
+        instagramHandle: 'embro_nails_craft',
         api: {
             baseUrl: 'https://sbdhcrafts.sbdhpixels.com',
             consumerKey: 'ck_1a44719a2a46359537d99e0794a1a1eaded9b4e6',
@@ -45,12 +45,12 @@ const APPS = {
             consumerSecret: 'cs_2a45dc3af9bbbd237d131ff7ba9616a876b4e1cb',
         },
         assets: {
-            icon: './assets/apps/sbdh-pixels/icon.png',
-            splash: './assets/apps/sbdh-pixels/user-logo.png',
+            icon: './assets/apps/sbdh-pixels/user-logo.png',
+            splash: '', // Remove native splash to prevent double-screen effect
             favicon: './assets/apps/sbdh-pixels/favicon.png',
-            adaptiveIconForeground: './assets/apps/sbdh-pixels/adaptive-icon.png',
+            adaptiveIconForeground: './assets/apps/sbdh-pixels/user-logo-padded.png',
             adaptiveIconBackground: '#FFFFFF',
-            splashBackgroundColor: '#000000',
+            splashBackgroundColor: '#FFFFFF',
         },
         eas: {
             projectId: '9e32bb57-7545-49c9-8c66-08ae0c1aad5b',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityIndicator,
+    View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityIndicator, Switch,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,8 +8,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuthStore } from '../../stores/authStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { updateCustomer } from '../../services/auth.service';
 import { useAddressStore } from '../../stores/addressStore';
+import * as Notifications from '../../services/notification.service';
 
 export default function ProfileScreen({ navigation }: any) {
     const { colors, spacing, radius, fonts, shadows } = useTheme();
@@ -19,6 +21,8 @@ export default function ProfileScreen({ navigation }: any) {
     const [firstName, setFirstName] = useState(user?.first_name ?? '');
     const [lastName, setLastName] = useState(user?.last_name ?? '');
     const [saving, setSaving] = useState(false);
+    const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+    const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
 
     const handleSave = async () => {
         if (!user?.id) return;
@@ -175,7 +179,47 @@ export default function ProfileScreen({ navigation }: any) {
                         </TouchableOpacity>
                     ))}
                 </View>
+
+                {/* Notification Toggle */}
+                <View style={[s.linkRow, { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md }]}>
+                    <View style={[s.linkIconWrap, { backgroundColor: colors.primary + '11' }]}>
+                        <Ionicons name="notifications-outline" size={20} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={s.linkLabel}>Push Notifications</Text>
+                        <Text style={{ fontSize: fonts.sizes.xs, color: colors.textSecondary }}>Receive cart & product reminders</Text>
+                    </View>
+                    <Switch
+                        value={notificationsEnabled}
+                        onValueChange={async (val) => {
+                            setNotificationsEnabled(val);
+                            if (val) {
+                                await Notifications.requestNotificationPermissions();
+                            } else {
+                                Notifications.cancelAllNotifications();
+                            }
+                        }}
+                        trackColor={{ false: colors.border, true: colors.primary }}
+                        thumbColor="#fff"
+                    />
+                </View>
             </View>
+
+            {/* Admin Dashboard */}
+            {user?.email && ['naveenraibagi@gmail.com', 'naveen95383@gmail.com', 'naveenths7@gmail.com'].includes(user.email) && (
+                <>
+                    <Text style={s.sectionTitle}>Administrator</Text>
+                    <View style={[s.section, shadows.sm]}>
+                        <TouchableOpacity style={s.linkRow} onPress={() => navigation.navigate('AdminDashboard')} activeOpacity={0.85}>
+                            <View style={[s.linkIconWrap, { backgroundColor: '#FF950022' }]}>
+                                <Ionicons name="megaphone-outline" size={20} color="#FF9500" />
+                            </View>
+                            <Text style={s.linkLabel}>Admin Dashboard</Text>
+                            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </>
+            )}
 
             {/* Logout */}
             <TouchableOpacity style={[s.logoutBtn, shadows.sm]} onPress={handleLogout} activeOpacity={0.88}>

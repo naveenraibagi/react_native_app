@@ -11,6 +11,9 @@ import SkeletonLoader from '../../components/common/SkeletonLoader';
 import EmptyState from '../../components/common/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 import { SortOption } from '../../types';
+import TrendingBanner from '../../components/shop/TrendingBanner';
+import TrendingProductsAlert from '../../components/shop/TrendingProductsAlert';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: W } = Dimensions.get('window');
 
@@ -31,6 +34,24 @@ export default function ProductListScreen({ route, navigation }: any) {
     const [minPrice, setMinPrice] = useState<number | undefined>();
     const [maxPrice, setMaxPrice] = useState<number | undefined>();
     const [inStock, setInStock] = useState(false);
+    const [showTrendingAlert, setShowTrendingAlert] = useState(false);
+
+    React.useEffect(() => {
+        checkTrendingAlert();
+    }, []);
+
+    const checkTrendingAlert = async () => {
+        try {
+            const lastShown = await AsyncStorage.getItem('last_trending_alert_time');
+            const now = Date.now();
+            if (!lastShown || now - parseInt(lastShown) > 24 * 60 * 60 * 1000) {
+                setShowTrendingAlert(true);
+                await AsyncStorage.setItem('last_trending_alert_time', now.toString());
+            }
+        } catch (error) {
+            console.error('Error checking trending alert time:', error);
+        }
+    };
     const {
         data,
         isLoading,
@@ -112,6 +133,7 @@ export default function ProductListScreen({ route, navigation }: any) {
                     numColumns={2}
                     keyExtractor={(i) => String(i.id)}
                     contentContainerStyle={s.list}
+                    ListHeaderComponent={<TrendingBanner onPress={() => setShowTrendingAlert(true)} />}
                     columnWrapperStyle={{ gap: spacing.md }}
                     ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
                     refreshControl={<RefreshControl refreshing={isFetching && !isLoading && !isFetchingNextPage} onRefresh={refetch} tintColor={colors.primary} />}
@@ -135,6 +157,11 @@ export default function ProductListScreen({ route, navigation }: any) {
                     ) : null}
                 />
             )}
+
+            <TrendingProductsAlert 
+                visible={showTrendingAlert} 
+                onClose={() => setShowTrendingAlert(false)} 
+            />
         </View>
     );
 }

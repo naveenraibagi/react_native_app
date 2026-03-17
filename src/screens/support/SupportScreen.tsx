@@ -99,7 +99,7 @@ export default function SupportScreen() {
 
                 <View style={s.footer}>
                     <Text style={[s.footerText, { color: colors.textMuted }]}>
-                        Thank you for choosing SBDH PIXELS
+                        Thank you for choosing {activeConfig.id === 'sbdh-pixels' ? 'SBDH PIXELS' : 'SBDH CRAFTS'}
                     </Text>
                 </View>
             </ScrollView>

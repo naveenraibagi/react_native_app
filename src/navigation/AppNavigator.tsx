@@ -40,6 +40,7 @@ import ProfileScreen from '../screens/account/ProfileScreen';
 import OrderHistoryScreen from '../screens/orders/OrderHistoryScreen';
 import OrderDetailScreen from '../screens/orders/OrderDetailScreen';
 import AddressBookScreen from '../screens/account/AddressBookScreen';
+import AdminDashboard from '../screens/admin/AdminDashboard';
 
 // ─── Reels & Support ─────────────────────────────────────────
 import ReelsScreen from '../screens/reels/ReelsScreen';
@@ -209,6 +210,7 @@ const AccountNavigator = () => {
             <AccountStack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Order Detail' }} />
             <AccountStack.Screen name="AddressBook" component={AddressBookScreen} options={{ title: 'My Addresses' }} />
             <AccountStack.Screen name="AddressForm" component={AddressFormScreen} options={{ title: 'Edit Address' }} />
+            <AccountStack.Screen name="AdminDashboard" component={AdminDashboard} options={{ headerShown: false }} />
         </AccountStack.Navigator>
     );
 };

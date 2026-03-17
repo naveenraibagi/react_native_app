@@ -31,9 +31,11 @@ export const registerUser = async (
 };
 
 export const resetPassword = async (email: string): Promise<void> => {
-    // Uses WordPress lostpassword endpoint
-    await wpApi.post('/wp/v2/users/lost-password', { user_login: email });
+    // Uses relative path to ams-send-password-reset-link endpoint.
+    // The wooApi baseURL already includes /wp-json/wc/v3.
+    await wooApi.post('ams-send-password-reset-link', { email: email.trim() });
 };
+
 
 export const fetchCustomer = async (id: number): Promise<WCUser> => {
     const { data } = await wooApi.get(`/customers/${id}`);

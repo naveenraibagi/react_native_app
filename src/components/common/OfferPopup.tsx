@@ -71,7 +71,10 @@ export default function OfferPopup({ coupon, onClose }: OfferPopupProps) {
                         colors={[colors.primary, colors.primaryDark]}
                         style={styles.header}
                     >
-                        <TouchableOpacity style={styles.closeBtn} onPress={() => setIsVisible(false)}>
+                        <TouchableOpacity style={styles.closeBtn} onPress={() => {
+                            setIsVisible(false);
+                            onClose?.();
+                        }}>
                             <Ionicons name="close" size={24} color="#fff" />
                         </TouchableOpacity>
                         <Ionicons name="gift-outline" size={50} color="#fff" />
@@ -130,6 +133,7 @@ export default function OfferPopup({ coupon, onClose }: OfferPopupProps) {
                                 onPress={() => {
                                     copyToClipboard();
                                     setIsVisible(false);
+                                    onClose?.();
                                 }}
                             >
                                 <Text style={styles.applyBtnText}>{product ? 'Claim & Shop' : 'Claim Offer Now'}</Text>

@@ -12,14 +12,15 @@ export default function ForgotPasswordScreen({ navigation }: any) {
     const [sent, setSent] = useState(false);
 
     const handleReset = async () => {
-        if (!email.trim()) { Alert.alert('Enter your email address'); return; }
+        if (!email.trim()) { Alert.alert('Error', 'Please enter your email address'); return; }
         setLoading(true);
         try {
             await resetPassword(email.trim());
             setSent(true);
-        } catch {
-            // WooCommerce returns success even if email doesn't exist (security)
-            setSent(true);
+        } catch (error: any) {
+            console.error('Password reset error:', error);
+            const message = error.response?.data?.message || error.message || 'Something went wrong. Please try again.';
+            Alert.alert('Reset Failed', message);
         } finally {
             setLoading(false);
         }

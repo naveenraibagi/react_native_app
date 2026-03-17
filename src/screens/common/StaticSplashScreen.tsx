@@ -25,48 +25,26 @@ export default function StaticSplashScreen({ onComplete, duration = 2000 }: Stat
     }, []);
 
     return (
-        <View style={[StyleSheet.absoluteFill, s.container, { backgroundColor: '#000000' }]}>
-            <View style={s.logoWrapper}>
-                <View style={s.logoContainer}>
-                    <Image 
-                        source={logoSource} 
-                        style={s.logo}
-                        resizeMode="cover"
-                    />
-                </View>
-            </View>
+        <View style={[StyleSheet.absoluteFill, s.container, { backgroundColor: '#FFFFFF' }]}>
+            <Image 
+                source={logoSource} 
+                style={s.logo}
+                resizeMode="contain"
+            />
         </View>
     );
 }
 
 const s = StyleSheet.create({
     container: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: '#FFFFFF',
         zIndex: 9999,
     },
-    logoWrapper: {
-        width: width * 0.7,
-        height: width * 0.7,
-        borderRadius: (width * 0.7) / 2,
-        backgroundColor: '#000',
-        // Subtle depth to separate from black background
-        shadowColor: '#fff',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-    },
-    logoContainer: {
-        width: '100%',
-        height: '100%',
-        borderRadius: (width * 0.7) / 2,
-        overflow: 'hidden',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     logo: {
-        width: '115%', // Zoom in to hide checkerboard corners
-        height: '115%',
+        width: width * 0.6,
+        height: width * 0.6,
     }
 });

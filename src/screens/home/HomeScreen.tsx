@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
     Dimensions, Image, RefreshControl, StatusBar, ActivityIndicator,
@@ -28,7 +28,7 @@ const BANNER_H = 220;
 
 const LOGO_MAP: Record<string, any> = {
     'sbdh-crafts': require('../../../assets/apps/sbdh-crafts/icon.png'),
-    'sbdh-pixels': require('../../../assets/apps/sbdh-pixels/icon.png'),
+    'sbdh-pixels': require('../../../assets/apps/sbdh-pixels/logo-new.png'),
 };
 
 export default function HomeScreen({ navigation }: any) {
@@ -39,12 +39,25 @@ export default function HomeScreen({ navigation }: any) {
     const wishlistCount = useWishlistStore(s => s.ids.length);
     const [activeBanner, setActiveBanner] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
+    const bannerRef = useRef<ScrollView>(null);
 
     const { data: latestProducts, isLoading: bannerLoading, refetch: refetchBanners } = useQuery({
         queryKey: ['products', 'latest'],
-        queryFn: () => fetchProducts({ perPage: 5, sort: 'date' }),
+        queryFn: () => fetchProducts({ perPage: 10, sort: 'date' }),
         staleTime: 5 * 60 * 1000,
     });
+
+    useEffect(() => {
+        if (!latestProducts || latestProducts.length <= 1) return;
+
+        const interval = setInterval(() => {
+            const nextIndex = (activeBanner + 1) % latestProducts.length;
+            bannerRef.current?.scrollTo({ x: nextIndex * SCREEN_W, animated: true });
+            setActiveBanner(nextIndex);
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [activeBanner, latestProducts]);
 
     const { data: categories, isLoading: catLoading, refetch: refetchCats } = useQuery({
         queryKey: ['categories', 0],
@@ -82,8 +95,21 @@ export default function HomeScreen({ navigation }: any) {
         setRefreshing(false);
     }, []);
 
+    const displayCategories = React.useMemo(() => {
+        if (!categories) return [];
+        const thoranId = 63;
+        const list = [...categories];
+        const index = list.findIndex(c => c.id === thoranId);
+        if (index > -1) {
+            const thoran = list.splice(index, 1)[0];
+            list.unshift(thoran);
+        }
+        return list.slice(0, 8);
+    }, [categories]);
+
 
     const s = st(colors, spacing, radius, fonts, shadows);
+    const { base: spacingBase, md: spacingMd } = spacing;
 
     const recentlyViewed = useRecentlyViewedStore(s => s.items);
 
@@ -109,9 +135,9 @@ export default function HomeScreen({ navigation }: any) {
         <ProductCard
             product={item}
             onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-            style={{ width: (SCREEN_W - spacing.base * 2 - spacing.md) / 2, marginHorizontal: 0 }}
+            style={{ width: (SCREEN_W - spacingBase * 2 - spacingMd) / 2, marginHorizontal: 0 }}
         />
-    ), [navigation, spacing, SCREEN_W]);
+    ), [navigation, spacingBase, spacingMd, SCREEN_W]);
 
     return (
         <View style={s.flex}>
@@ -122,7 +148,7 @@ export default function HomeScreen({ navigation }: any) {
                 <View style={s.headerContent}>
                     <View style={s.brandContainer}>
                         <Text style={s.brandMain}>SBDH </Text>
-                        <Text style={s.brandSub}>PIXELS</Text>
+                        <Text style={s.brandSub}>{activeConfig.id === 'sbdh-pixels' ? 'PIXELS' : 'CRAFTS'}</Text>
                     </View>
                     <View style={s.headerIcons}>
                         <TouchableOpacity style={s.headerIconBtn} onPress={() => navigation.navigate('WishlistTab')}>
@@ -171,6 +197,7 @@ export default function HomeScreen({ navigation }: any) {
                     ) : (
                         <>
                             <ScrollView
+                                ref={bannerRef}
                                 horizontal
                                 pagingEnabled
                                 showsHorizontalScrollIndicator={false}
@@ -194,7 +221,11 @@ export default function HomeScreen({ navigation }: any) {
                                                 style={StyleSheet.absoluteFillObject}
                                             />
                                             <View style={s.bannerInfo}>
-                                                <Text style={s.bannerTag}>NEW ARRIVAL</Text>
+                                                {product.categories?.some((c: any) => c.id === 63) ? (
+                                                    <Text style={[s.bannerTag, { color: '#FF4747' }]}>HIGH DEMAND</Text>
+                                                ) : (
+                                                    <Text style={s.bannerTag}>NEW ARRIVAL</Text>
+                                                )}
                                                 <Text style={s.bannerTitle} numberOfLines={2}>{product.name}</Text>
                                                 <Text style={s.bannerPrice}>{formatCurrency(product.price)}</Text>
                                                 <TouchableOpacity
@@ -230,7 +261,7 @@ export default function HomeScreen({ navigation }: any) {
                         <SkeletonLoader rows={1} cols={3} cardHeight={110} />
                     ) : (
                         <FlatList
-                            data={categories?.slice(0, 8)}
+                            data={displayCategories}
                             renderItem={renderCategory}
                             keyExtractor={(i) => String(i.id)}
                             horizontal
@@ -275,6 +306,54 @@ export default function HomeScreen({ navigation }: any) {
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
                         />
+                    </View>
+                )}
+
+                {/* Thoran / Jhalar Special Section */}
+                {activeConfig.id === 'sbdh-pixels' && (
+                    <View style={s.section}>
+                        <View style={s.sectionHeader}>
+                            <View>
+                                <Text style={s.sectionTitle}>🏮 THORAN/JHALAR</Text>
+                                <Text style={s.sectionSubTitle}>High Demand Collection</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => navigation.navigate('ProductList', { categoryId: 63, title: 'Thoran/Jhalar', sort: 'popularity' })}>
+                                <Text style={s.seeAll}>See All</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity 
+                            style={s.thoranBannerContainer}
+                            activeOpacity={0.9}
+                            onPress={() => navigation.navigate('ProductList', { categoryId: 63, title: 'Thoran/Jhalar' })}
+                        >
+                            <Image 
+                                source={require('../../../assets/images/thoran_banner.png')} 
+                                style={s.thoranBannerImg}
+                                resizeMode="cover"
+                            />
+                            <LinearGradient
+                                colors={['transparent', 'rgba(0,0,0,0.6)']}
+                                style={StyleSheet.absoluteFillObject}
+                            />
+                            <View style={s.thoranBannerTextWrap}>
+                                <Text style={s.thoranBannerTitle}>Thoran Collections</Text>
+                                <Text style={s.thoranBannerSub}>Premium Pixel LED Thorans</Text>
+                            </View>
+                        </TouchableOpacity>
+                        {featLoading ? (
+                            <SkeletonLoader rows={1} cols={2} cardHeight={220} />
+                        ) : (
+                            <FlatList
+                                data={featured?.filter((p: any) => p.categories?.some((c: any) => c.id === 63)).slice(0, 4)}
+                                renderItem={renderProduct}
+                                keyExtractor={(i) => `thoran-${i.id}`}
+                                numColumns={2}
+                                scrollEnabled={false}
+                                contentContainerStyle={{ paddingHorizontal: spacing.base, gap: spacing.md }}
+                                columnWrapperStyle={{ gap: spacing.md }}
+                            />
+                        )}
                     </View>
                 )}
 
@@ -452,4 +531,38 @@ const st = (colors: any, spacing: any, radius: any, fonts: any, shadows: any) =>
         catImg: { width: 72, height: 72, borderRadius: radius.lg, marginBottom: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.surface },
         catName: { fontSize: fonts.sizes.xs + 1, fontWeight: '600', color: colors.text, textAlign: 'center' },
         catCount: { fontSize: fonts.sizes.xs, color: colors.textMuted, textAlign: 'center' },
+        thoranBannerContainer: {
+            height: 160,
+            marginHorizontal: spacing.base,
+            borderRadius: radius.lg,
+            overflow: 'hidden',
+            marginBottom: spacing.md,
+            elevation: 5,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.2,
+            shadowRadius: 5,
+        },
+        thoranBannerImg: {
+            width: '100%',
+            height: '100%',
+        },
+        thoranBannerTextWrap: {
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: 15,
+        },
+        thoranBannerTitle: {
+            color: '#fff',
+            fontSize: 18,
+            fontWeight: '900',
+        },
+        thoranBannerSub: {
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: 12,
+            fontWeight: '600',
+            marginTop: 2,
+        },
     });

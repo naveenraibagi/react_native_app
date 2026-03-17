@@ -14,6 +14,7 @@ import {
 } from '../../services/products.service';
 import { fetchLatestCoupons } from '../../services/orders.service';
 import { useCartStore } from '../../stores/cartStore';
+import { ACTIVE_APP_ID } from '../../config';
 import { useAuthStore } from '../../stores/authStore';
 import { useWishlistStore } from '../../stores/wishlistStore';
 import { useRecentlyViewedStore } from '../../stores/recentlyViewedStore';
@@ -43,7 +44,6 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewName, setReviewName] = useState(user?.first_name ? `${user.first_name} ${user.last_name}` : '');
     const [reviewEmail, setReviewEmail] = useState(user?.email ?? '');
-    const [reviewText, setReviewText] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
     const [ppomValues, setPpomValues] = useState<Record<string, any>>({});
 
@@ -66,6 +66,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     const { data: ppomFields } = useQuery({
         queryKey: ['ppom', productId],
         queryFn: () => fetchProductPPOMFields(productId),
+        enabled: ACTIVE_APP_ID !== 'sbdh-pixels',
     });
 
     const { data: coupons } = useQuery({
@@ -112,6 +113,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     };
 
     const validatePPOMFields = () => {
+        if (ACTIVE_APP_ID === 'sbdh-pixels') return true;
         if (!ppomFields) return true;
         const fieldsList = Array.isArray(ppomFields) ? ppomFields : Object.values(ppomFields);
         
@@ -280,10 +282,9 @@ export default function ProductDetailScreen({ route, navigation }: any) {
 
                     {/* PPOM Fields */}
                     {(() => {
-                        console.log('Rendering PPOM section. fields data:', ppomFields);
+                        if (ACTIVE_APP_ID === 'sbdh-pixels') return null;
                         if (!ppomFields) return null;
                         const fieldsList = Array.isArray(ppomFields) ? ppomFields : Object.values(ppomFields);
-                        console.log('Normalized fields list:', fieldsList);
                         if (fieldsList.length === 0) return null;
 
                         return (
@@ -293,8 +294,6 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                                     const fieldType = field.type || 'text'; // Fallback to text
                                     const dataName = field.data_name || field.id || `field_${idx}`;
                                     const isRequired = field.required === 'on' || field.required === 'yes';
-
-                                    console.log(`Rendering field ${idx}:`, { fieldTitle, fieldType, dataName });
 
                                     // Normalize options to an array
                                     let options = [];

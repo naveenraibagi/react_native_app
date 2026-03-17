@@ -64,7 +64,7 @@ export default function ReelsScreen() {
                         <View style={s.cardTextContainer}>
                             <Text style={[s.platformTitle, { color: colors.text }]}>Instagram</Text>
                             <Text style={[s.platformHandle, { color: colors.primary }]}>@{activeConfig.instagramHandle}</Text>
-                            <Text style={[s.platformDesc, { color: colors.textSecondary }]}>Trending nail art, quick tips, and daily updates.</Text>
+                            <Text style={[s.platformDesc, { color: colors.textSecondary }]}>Quick tips and daily updates.</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
@@ -81,7 +81,7 @@ export default function ReelsScreen() {
                             </View>
                             <View style={s.cardTextContainer}>
                                 <Text style={[s.platformTitle, { color: colors.text }]}>YouTube Channel</Text>
-                                <Text style={[s.platformHandle, { color: '#FF0000' }]}>SBDH PIXELS</Text>
+                                <Text style={[s.platformHandle, { color: '#FF0000' }]}>{activeConfig.id === 'sbdh-pixels' ? 'SBDH PIXELS' : 'SBDH CRAFTS'}</Text>
                                 <Text style={[s.platformDesc, { color: colors.textSecondary }]}>In-depth tutorials, long-form videos, and more.</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
@@ -100,7 +100,7 @@ export default function ReelsScreen() {
                             </View>
                             <View style={s.cardTextContainer}>
                                 <Text style={[s.platformTitle, { color: colors.text }]}>Facebook Page</Text>
-                                <Text style={[s.platformHandle, { color: '#1877F2' }]}>SBDH PIXELS</Text>
+                                <Text style={[s.platformHandle, { color: '#1877F2' }]}>{activeConfig.id === 'sbdh-pixels' ? 'SBDH PIXELS' : 'SBDH CRAFTS'}</Text>
                                 <Text style={[s.platformDesc, { color: colors.textSecondary }]}>Connect with our community and stay updated.</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />

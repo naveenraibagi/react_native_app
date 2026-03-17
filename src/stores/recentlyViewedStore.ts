@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACTIVE_APP_ID } from '../config';
 import { WCProduct } from '../types';
+import { scheduleViewReminder } from '../services/notification.service';
 
 interface RecentlyViewedStore {
     items: WCProduct[];
@@ -21,6 +22,8 @@ export const useRecentlyViewedStore = create<RecentlyViewedStore>()(
                 // Limit to 10 items
                 const newItems = [product, ...filtered].slice(0, 10);
                 set({ items: newItems });
+                // Schedule reminder 22h later
+                scheduleViewReminder(product.name);
             },
             clear: () => set({ items: [] }),
         }),

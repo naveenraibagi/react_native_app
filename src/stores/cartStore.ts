@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CartItem, WCProduct } from '../types';
 import { ACTIVE_APP_ID } from '../config';
+import { scheduleCartReminder } from '../services/notification.service';
 
 interface CartStore {
     items: CartItem[];
@@ -68,6 +69,8 @@ export const useCartStore = create<CartStore>()(
                         ],
                     };
                 });
+                // Schedule reminder 24h later
+                scheduleCartReminder(product.name);
             },
 
             removeItem: (productId, variationId, ppomFields) =>

@@ -69,7 +69,7 @@ export const fetchProductPPOMFields = async (productId: number) => {
             }
         }
 
-        console.warn('PPOM configuration not found in page HTML');
+        console.log('PPOM configuration not found in page HTML');
     } catch (error: any) {
         console.warn('PPOM HTML scraping failed:', error.message);
     }
