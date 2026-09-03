@@ -21,6 +21,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { loginUser } from '../../services/auth.service';
 import { getErrorMessage } from '../../utils/error';
 import { showMessage } from 'react-native-flash-message';
+import { activeConfig } from '../../config';
 
 const schema = z.object({
     email: z.string().email('Enter a valid email'),
@@ -62,7 +63,7 @@ export default function LoginScreen({ navigation }: any) {
         <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <LinearGradient colors={[colors.primary, colors.primaryDark]} style={s.header}>
                 <Ionicons name="storefront" size={48} color="#fff" />
-                <Text style={s.appName}>SBDH CRAFT</Text>
+                <Text style={s.appName}>{activeConfig.name}</Text>
                 <Text style={s.subtitle}>Your premium shopping experience</Text>
             </LinearGradient>
 
