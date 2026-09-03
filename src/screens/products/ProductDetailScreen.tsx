@@ -44,6 +44,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewName, setReviewName] = useState(user?.first_name ? `${user.first_name} ${user.last_name}` : '');
     const [reviewEmail, setReviewEmail] = useState(user?.email ?? '');
+    const [reviewText, setReviewText] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
     const [ppomValues, setPpomValues] = useState<Record<string, any>>({});
 

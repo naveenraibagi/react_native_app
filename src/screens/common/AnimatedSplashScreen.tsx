@@ -89,7 +89,7 @@ export default function AnimatedSplashScreen({ onAnimationComplete }: AnimatedSp
                 end={{ x: 0.5, y: 1 }}
                 style={StyleSheet.absoluteFill}
             />
-            
+
             {/* Ambient Glow - blends the logo edge into the black background */}
             <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
                 <View style={{

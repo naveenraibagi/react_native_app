@@ -26,8 +26,8 @@ export default function StaticSplashScreen({ onComplete, duration = 2000 }: Stat
 
     return (
         <View style={[StyleSheet.absoluteFill, s.container, { backgroundColor: '#FFFFFF' }]}>
-            <Image 
-                source={logoSource} 
+            <Image
+                source={logoSource}
                 style={s.logo}
                 resizeMode="contain"
             />
